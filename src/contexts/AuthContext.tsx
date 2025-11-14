@@ -1,3 +1,4 @@
+import type { UserData } from '@/src/types';
 import { STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
 import { useRouter, useSegments } from 'expo-router';
@@ -6,7 +7,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from '
 export interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (token: string, userData: { name: string; email: string; userType: string }) => Promise<void>;
+    login: (token: string, userData: UserData) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -53,20 +54,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [isAuthenticated, segments, isLoading, router]);
 
-    const login = async (token: string, userData: { name: string; email: string; userType: string }) => {
+    const login = async (token: string, userData: UserData) => {
         await storage.setItem(STORAGE_KEYS.token, token);
-        await storage.setItem(STORAGE_KEYS.user_name, userData.name);
+        await storage.setItem(STORAGE_KEYS.user_id, userData.id);
+        await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
+        await storage.setItem(STORAGE_KEYS.user_username, userData.username);
+        if (userData.nit) {
+            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit);
+        }
         await storage.setItem(STORAGE_KEYS.user_email, userData.email);
-        await storage.setItem(STORAGE_KEYS.user_type, userData.userType);
+        await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
         setIsAuthenticated(true);
         router.replace('/(tabs)/home');
     };
 
     const logout = async () => {
         await storage.removeItem(STORAGE_KEYS.token);
-        await storage.removeItem(STORAGE_KEYS.user_name);
+        await storage.removeItem(STORAGE_KEYS.user_id);
+        await storage.removeItem(STORAGE_KEYS.user_enterprise_name);
+        await storage.removeItem(STORAGE_KEYS.user_username);
+        await storage.removeItem(STORAGE_KEYS.user_nit);
         await storage.removeItem(STORAGE_KEYS.user_email);
-        await storage.removeItem(STORAGE_KEYS.user_type);
+        await storage.removeItem(STORAGE_KEYS.user_rol);
         setIsAuthenticated(false);
         router.replace('/');
     };

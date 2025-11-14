@@ -1,12 +1,15 @@
 /**
  * Claves para almacenamiento seguro (SecureStore)
+ * Basado en el schema User del backend
  */
 export const STORAGE_KEYS = {
     token: 'EconexionToken',
-    user_name: 'EconexionName',
-    user_email: 'EconexionEmail',
     user_id: 'EconexionUserId',
-    user_type: 'EconexionUserType',
+    user_enterprise_name: 'EconexionEnterpriseName',
+    user_username: 'EconexionUsername',
+    user_nit: 'EconexionNit',
+    user_email: 'EconexionEmail',
+    user_rol: 'EconexionRol',
 } as const;
 
 /**

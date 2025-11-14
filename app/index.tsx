@@ -61,10 +61,12 @@ export default function Home() {
             // mocking the exchange process
             const mockResponse = {
                 user: {
-                    id: 'mock-user-id-123',
-                    email: 'Google@example.com',
-                    name: 'Google Mock',
-                    user_type: 'compra',
+                    id: 'mock-google-user-456',
+                    enterpriseName: 'EcoTech Solutions',
+                    username: 'María González',
+                    nit: '800987654-2',
+                    email: 'maria.gonzalez@ecotech.com',
+                    rol: 'COMPRADOR',
                 },
                 token: 'mock-jwt-token-google-abc123xyz',
             };
@@ -72,11 +74,7 @@ export default function Home() {
             // Simular delay de red y luego usar el contexto de Auth
             setTimeout(async () => {
                 console.log('Mock response:', mockResponse);
-                await login(mockResponse.token, {
-                    name: mockResponse.user.name,
-                    email: mockResponse.user.email,
-                    userType: mockResponse.user.user_type,
-                });
+                await login(mockResponse.token, mockResponse.user);
             }, 1000);
         } else if (response.type === 'error') {
             setIsExchanging(false);

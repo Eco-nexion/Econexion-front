@@ -11,17 +11,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ProfileTab() {
     const { logout } = useAuth();
     const [userData, setUserData] = useState<UserData>({
-        name: '',
+        id: '',
+        enterpriseName: '',
+        username: '',
+        nit: '',
         email: '',
-        userType: '',
+        rol: '',
     });
 
     useEffect(() => {
         const loadUserData = async () => {
-            const name = (await storage.getItem(STORAGE_KEYS.user_name)) || 'Usuario';
+            const id = (await storage.getItem(STORAGE_KEYS.user_id)) || '';
+            const enterpriseName = (await storage.getItem(STORAGE_KEYS.user_enterprise_name)) || 'Empresa';
+            const username = (await storage.getItem(STORAGE_KEYS.user_username)) || 'Usuario';
+            const nit = (await storage.getItem(STORAGE_KEYS.user_nit)) || '';
             const email = (await storage.getItem(STORAGE_KEYS.user_email)) || 'correo@ejemplo.com';
-            const userType = (await storage.getItem(STORAGE_KEYS.user_type)) || 'usuario';
-            setUserData({ name, email, userType });
+            const rol = (await storage.getItem(STORAGE_KEYS.user_rol)) || 'usuario';
+            setUserData({ id, enterpriseName, username, nit, email, rol });
         };
 
         loadUserData();
@@ -51,13 +57,13 @@ export default function ProfileTab() {
                 <View style={styles.header}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{getInitials(userData.name)}</Text>
+                            <Text style={styles.avatarText}>{getInitials(userData.username)}</Text>
                         </View>
                     </View>
-                    <Text style={styles.userName}>{userData.name}</Text>
+                    <Text style={styles.userName}>{userData.username}</Text>
                     <Text style={styles.userEmail}>{userData.email}</Text>
                     <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{getUserTypeLabel(userData.userType)}</Text>
+                        <Text style={styles.badgeText}>{getUserTypeLabel(userData.rol)}</Text>
                     </View>
                 </View>
 

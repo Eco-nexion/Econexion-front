@@ -4,12 +4,16 @@ export { isEmailValid, MAX_PHOTO_SIZE_MB } from './forms';
 export type { RegisterForm, RegisterFormErrors, Role } from './forms';
 
 /**
- * Datos básicos del usuario almacenados localmente
+ * Datos del usuario almacenados localmente
+ * Basado en el schema User del backend
  */
 export interface UserData {
-    name: string;
+    id: string;
+    enterpriseName: string;
+    username: string;
+    nit?: string;
     email: string;
-    userType: string;
+    rol: string;
 }
 
 /**

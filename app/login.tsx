@@ -40,19 +40,17 @@ export default function Login() {
         const mockResponse = {
             user: {
                 id: 'mock-user-id-123',
-                email: 'Econexion@example.com',
-                name: 'Econexion Mock',
-                user_type: 'vende',
+                enterpriseName: 'Econexion S.A.S.',
+                username: 'Juan Pérez',
+                nit: '900123456-1',
+                email: 'juan.perez@econexion.com',
+                rol: 'VENDEDOR',
             },
             token: 'mock-jwt-token-econexion-abc123xyz',
         };
 
         // Usar el contexto de Auth para login (guarda y redirige automáticamente)
-        await login(mockResponse.token, {
-            name: mockResponse.user.name,
-            email: mockResponse.user.email,
-            userType: mockResponse.user.user_type,
-        });
+        await login(mockResponse.token, mockResponse.user);
     };
 
     return (
