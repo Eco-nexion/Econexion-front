@@ -17,8 +17,8 @@ const MOCK_OFFERS: Offer[] = [
             material: 'Cartón',
             quantity: 1000,
             price: 800,
-            location: 'Medellín, Antioquia',
-            description: 'Cajas de cartón corrugado en excelente estado, clasificadas por tamaño.',
+            location: 'Medellin, Antioquia',
+            description: 'Cajas de carton corrugado en excelente estado, clasificadas por tamano.',
             owner: 'mock-user-id-123', // YO soy el dueño
             offers: ['offer-1'],
         },
@@ -67,12 +67,12 @@ const MOCK_OFFERS: Offer[] = [
         date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // Hace 3 días
         publication: {
             id: '1',
-            title: 'Plástico PET reciclable',
+            title: 'Plastico PET reciclable',
             material: 'PET',
             quantity: 500,
             price: 1200,
-            location: 'Bogotá, Cundinamarca',
-            description: 'Botellas de plástico PET limpias y prensadas, listas para reciclaje.',
+            location: 'Bogota, Cundinamarca',
+            description: 'Botellas de plastico PET limpias y prensadas, listas para reciclaje.',
             owner: 'mock-user-2', // OTRO usuario es el dueño
             offers: ['offer-3'],
         },
@@ -94,18 +94,18 @@ const MOCK_OFFERS: Offer[] = [
         date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // Hace 5 días
         publication: {
             id: '2',
-            title: 'Cartón corrugado',
-            material: 'Cartón',
+            title: 'Carton corrugado',
+            material: 'Carton',
             quantity: 1000,
             price: 800,
-            location: 'Medellín, Antioquia',
-            description: 'Cajas de cartón corrugado en excelente estado, clasificadas por tamaño.',
+            location: 'Medellin, Antioquia',
+            description: 'Cajas de carton corrugado en excelente estado, clasificadas por tamano.',
             owner: 'mock-user-id-123',
             offers: ['offer-1', 'offer-4'],
         },
         offerer: {
             id: 'mock-user-4',
-            enterpriseName: 'Papel y Cartón SA',
+            enterpriseName: 'Papel y Carton SA',
             username: 'papelycarton',
             nit: '800234567',
             email: 'compras@papelycarton.com',

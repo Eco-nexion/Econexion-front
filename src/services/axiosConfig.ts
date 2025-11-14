@@ -1,15 +1,12 @@
-import { STORAGE_KEYS } from '@constants';
+import { API_CONFIG, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
 import axios from 'axios';
 
-// Base URL del backend desde variables de entorno
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api';
-
-// Crear instancia de axios
+// Crear instancia de axios con configuración centralizada
 const apiClient = axios.create({
-    // biome-ignore lint/style/useNamingConvention: <>
-    baseURL: API_BASE_URL,
-    timeout: 10000,
+    // biome-ignore lint/style/useNamingConvention: axios config
+    baseURL: API_CONFIG.BASE_URL,
+    timeout: API_CONFIG.TIMEOUT,
     headers: {
         'Content-Type': 'application/json',
     },

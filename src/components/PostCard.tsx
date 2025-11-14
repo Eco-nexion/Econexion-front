@@ -13,15 +13,22 @@ interface PostCardProps {
 
 export default function PostCard({ post, onPress, showActions = false, onEdit, onDelete }: PostCardProps) {
     const getMaterialIcon = (material: string): keyof typeof Ionicons.glyphMap => {
+        // Normalizar el material (quitar tildes y convertir a minúsculas para comparar)
+        const normalized = material
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
         const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-            PET: 'water-outline',
-            Cartón: 'cube-outline',
-            Aluminio: 'nutrition-outline',
-            Vidrio: 'wine-outline',
-            Papel: 'document-outline',
-            Plástico: 'flask-outline',
+            pet: 'water-outline',
+            carton: 'cube-outline',
+            aluminio: 'nutrition-outline',
+            vidrio: 'wine-outline',
+            papel: 'document-outline',
+            plastico: 'flask-outline',
         };
-        return icons[material] || 'leaf-outline';
+
+        return icons[normalized] || 'leaf-outline';
     };
 
     return (

@@ -35,7 +35,7 @@ export default function HomeTab() {
     // Obtener userId al montar
     useEffect(() => {
         const getUserId = async () => {
-            const userId = (await storage.getItem(STORAGE_KEYS.user_id)) || 'mock-user-id-123';
+            const userId = (await storage.getItem(STORAGE_KEYS.user_id)) || 'mock-user-1';
             setCurrentUserId(userId);
         };
         getUserId();
@@ -95,27 +95,21 @@ export default function HomeTab() {
     };
 
     // Rechazar oferta
+    // biome-ignore lint/suspicious/useAwait: <>
     const handleRejectOffer = async (offerId: string) => {
-        console.log('🚀 handleRejectOffer iniciado para offerId:', offerId);
         Alert.alert('Rechazar oferta', '¿Estás seguro de rechazar esta oferta?', [
             { text: 'Cancelar', style: 'cancel' },
             {
                 text: 'Rechazar',
                 style: 'destructive',
                 onPress: async () => {
-                    console.log('👉 Usuario confirmó rechazar oferta:', offerId);
                     try {
                         setActionLoading(true);
-                        console.log('⏳ Llamando a offersService.rejectOffer...');
                         await offersService.rejectOffer(offerId);
-                        console.log('✅ offersService.rejectOffer completado');
                         Alert.alert('Oferta rechazada');
                         setShowDetailModal(false);
-                        console.log('🔄 Recargando ofertas...');
                         await loadOffers();
-                        console.log('✅ Ofertas recargadas');
-                    } catch (error) {
-                        console.error('❌ Error al rechazar:', error);
+                    } catch (_error) {
                         Alert.alert('Error', 'No se pudo rechazar la oferta');
                     } finally {
                         setActionLoading(false);
@@ -126,6 +120,7 @@ export default function HomeTab() {
     };
 
     // Eliminar oferta
+    // biome-ignore lint/suspicious/useAwait: <>
     const handleDeleteOffer = async (offerId: string) => {
         Alert.alert('Eliminar oferta', '¿Estás seguro de eliminar esta oferta?', [
             { text: 'Cancelar', style: 'cancel' },
@@ -139,7 +134,7 @@ export default function HomeTab() {
                         Alert.alert('Oferta eliminada');
                         setShowDetailModal(false);
                         await loadOffers();
-                    } catch (error) {
+                    } catch (_error) {
                         Alert.alert('Error', 'No se pudo eliminar la oferta');
                     } finally {
                         setActionLoading(false);
@@ -156,7 +151,7 @@ export default function HomeTab() {
             Alert.alert('Éxito', 'Oferta actualizada correctamente');
             setShowEditModal(false);
             await loadOffers();
-        } catch (error) {
+        } catch (_error) {
             Alert.alert('Error', 'No se pudo actualizar la oferta');
         }
     };
@@ -168,7 +163,7 @@ export default function HomeTab() {
             Alert.alert('Éxito', 'Oferta creada correctamente');
             setShowCreateModal(false);
             await loadOffers();
-        } catch (error) {
+        } catch (_error) {
             Alert.alert('Error', 'No se pudo crear la oferta');
         }
     };

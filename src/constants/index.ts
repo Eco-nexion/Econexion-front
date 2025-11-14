@@ -40,8 +40,30 @@ export const BorderRadius = {
 };
 
 export * from './storage';
-// API Configuration
+
+/**
+ * Materiales reciclables disponibles en la plataforma
+ * IMPORTANTE: Estos valores deben coincidir EXACTAMENTE con el backend (sin tildes)
+ */
+export const Materials = {
+    pet: 'PET',
+    carton: 'Carton', // Sin tilde
+    aluminio: 'Aluminio',
+    vidrio: 'Vidrio',
+    papel: 'Papel',
+    plastico: 'Plastico', // Sin tilde
+} as const;
+
+export type MaterialType = (typeof Materials)[keyof typeof Materials];
+
+/**
+ * API Configuration
+ * Lee desde variables de entorno EXPO_PUBLIC_*
+ * Fallback a localhost para desarrollo local
+ */
 export const API_CONFIG = {
-    BASE_URL: 'http://localhost:8080',
-    TIMEOUT: 10000,
-};
+    // biome-ignore lint/style/useNamingConvention: API constants convention
+    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+    // biome-ignore lint/style/useNamingConvention: API constants convention
+    TIMEOUT: Number.parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT || '10000', 10),
+} as const;

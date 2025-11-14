@@ -118,7 +118,7 @@ export default function CreatePostModal({ visible, onClose, onSave }: CreatePost
                                     setFormData({ ...formData, title: text });
                                     setErrors({ ...errors, title: '' });
                                 }}
-                                placeholder='Ej: Plástico PET reciclable'
+                                placeholder='Ej: Plastico PET reciclable'
                                 placeholderTextColor={Colors.gray}
                             />
                             {errors.title ? <Text style={styles.fieldError}>{errors.title}</Text> : null}
@@ -134,7 +134,7 @@ export default function CreatePostModal({ visible, onClose, onSave }: CreatePost
                                     setFormData({ ...formData, material: text });
                                     setErrors({ ...errors, material: '' });
                                 }}
-                                placeholder='Ej: PET, Cartón, Aluminio'
+                                placeholder='Ej: PET, Carton, Aluminio'
                                 placeholderTextColor={Colors.gray}
                             />
                             {errors.material ? <Text style={styles.fieldError}>{errors.material}</Text> : null}
