@@ -43,13 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const currentSegment = segments[0] as string;
-        const inAuthGroup = currentSegment === '(tabs)' || currentSegment === 'dashboard' || currentSegment === 'home';
+        const inAuthGroup = currentSegment === '(tabs)' || currentSegment === 'dashboard';
 
         if (!isAuthenticated && inAuthGroup) {
             // Usuario no autenticado → redirigir a inicio
             router.replace('/');
-        } else if (isAuthenticated && !currentSegment) {
-            // Usuario autenticado en raíz → redirigir a tabs
+        } else if (isAuthenticated && (!currentSegment || currentSegment === 'index')) {
+            // Usuario autenticado en raíz o index → redirigir a tabs
             router.replace('/(tabs)/home');
         }
     }, [isAuthenticated, segments, isLoading, router]);
