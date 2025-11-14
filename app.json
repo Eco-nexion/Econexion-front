@@ -37,7 +37,7 @@
             "predictiveBackGestureEnabled": false
         },
         "web": {
-            "output": "static",
+            "output": "single",
             "bundler": "metro"
         },
         "plugins": ["expo-router", "expo-splash-screen", "expo-web-browser", "expo-secure-store"],

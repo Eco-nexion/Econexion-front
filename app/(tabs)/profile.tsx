@@ -1,11 +1,14 @@
+import DeleteAccountModal from '@/src/components/DeleteAccountModal';
+import EditProfileModal, { type EditProfileData } from '@/src/components/EditProfileModal';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { userService } from '@/src/services';
 import type { UserData } from '@/src/types';
 import { USER_TYPE_LABELS } from '@/src/types';
 import { BorderRadius, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '@utils';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileTab() {
@@ -18,6 +21,8 @@ export default function ProfileTab() {
         email: '',
         rol: '',
     });
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
     useEffect(() => {
         const loadUserData = async () => {
@@ -32,6 +37,37 @@ export default function ProfileTab() {
 
         loadUserData();
     }, []);
+
+    const handleEditProfile = async (data: EditProfileData) => {
+        // TODO: Llamar al endpoint PUT /lab/users/update/{id}
+        const updatedUser = await userService.updateUser(userData.id, data);
+
+        // Actualizar storage
+        await storage.setItem(STORAGE_KEYS.user_enterprise_name, updatedUser.enterpriseName);
+        await storage.setItem(STORAGE_KEYS.user_username, updatedUser.username);
+        if (updatedUser.nit) {
+            await storage.setItem(STORAGE_KEYS.user_nit, updatedUser.nit);
+        }
+        await storage.setItem(STORAGE_KEYS.user_email, updatedUser.email);
+
+        // Actualizar estado local
+        setUserData(updatedUser);
+    };
+
+    const handleDeleteAccount = async () => {
+        try {
+            // TODO: Cuando el backend esté listo, descomentar esta línea
+            // await userService.deleteUser(userData.id);
+
+            // Mostrar confirmación y cerrar sesión
+            Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada exitosamente');
+            await logout();
+        } catch (error: unknown) {
+            // Si el backend retorna error
+            const errorMessage = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
+            throw new Error(errorMessage);
+        }
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -75,16 +111,12 @@ export default function ProfileTab() {
                             icon='person-outline'
                             title='Información Personal'
                             subtitle='Edita tu nombre, foto de perfil'
-                            onPress={() => console.log('Información Personal')}
+                            onPress={() => setEditModalVisible(true)}
                         />
                         <Divider />
-                        <SettingItem
-                            icon='mail-outline'
-                            title='Correo Electrónico'
-                            subtitle={userData.email}
-                            onPress={() => console.log('Correo')}
-                        />
+                        <SettingItem icon='mail-outline' title='Correo Electrónico' subtitle={userData.email} />
                         <Divider />
+                        {/* TODO: Detectar proveedor de auth (google/local) para permitir cambiar contraseña */}
                         <SettingItem
                             icon='lock-closed-outline'
                             title='Contraseña'
@@ -160,6 +192,14 @@ export default function ProfileTab() {
                             subtitle='Versión 1.0.0'
                             onPress={() => console.log('Acerca de')}
                         />
+                        <Divider />
+                        <SettingItem
+                            icon='trash-outline'
+                            title='Eliminar Cuenta'
+                            subtitle='Eliminar permanentemente tu cuenta'
+                            onPress={() => setDeleteModalVisible(true)}
+                            iconColor='#DC2626'
+                        />
                     </View>
                 </View>
 
@@ -175,6 +215,25 @@ export default function ProfileTab() {
                     <Text style={styles.footerText}>Econexion © 2025</Text>
                 </View>
             </ScrollView>
+
+            <EditProfileModal
+                visible={editModalVisible}
+                onClose={() => setEditModalVisible(false)}
+                onSave={handleEditProfile}
+                initialData={{
+                    enterpriseName: userData.enterpriseName,
+                    username: userData.username,
+                    nit: userData.nit || '',
+                    email: userData.email,
+                }}
+            />
+
+            <DeleteAccountModal
+                visible={deleteModalVisible}
+                onClose={() => setDeleteModalVisible(false)}
+                onConfirm={handleDeleteAccount}
+                userEmail={userData.email}
+            />
         </SafeAreaView>
     );
 }
@@ -183,13 +242,16 @@ interface SettingItemProps {
     icon: keyof typeof Ionicons.glyphMap;
     title: string;
     subtitle: string;
-    onPress: () => void;
+    onPress?: () => void;
     iconColor?: string;
 }
 
 function SettingItem({ icon, title, subtitle, onPress, iconColor = Colors.gray }: SettingItemProps) {
+    const Container = onPress ? Pressable : View;
+    const containerProps = onPress ? { onPress, android_ripple: { color: '#f0f0f0' } } : {};
+
     return (
-        <Pressable style={styles.settingItem} onPress={onPress} android_ripple={{ color: '#f0f0f0' }}>
+        <Container style={styles.settingItem} {...containerProps}>
             <View style={styles.settingIconContainer}>
                 <Ionicons name={icon} size={24} color={iconColor} />
             </View>
@@ -197,8 +259,8 @@ function SettingItem({ icon, title, subtitle, onPress, iconColor = Colors.gray }
                 <Text style={styles.settingTitle}>{title}</Text>
                 <Text style={styles.settingSubtitle}>{subtitle}</Text>
             </View>
-            <Ionicons name='chevron-forward' size={20} color={Colors.gray} />
-        </Pressable>
+            {onPress ? <Ionicons name='chevron-forward' size={20} color={Colors.gray} /> : null}
+        </Container>
     );
 }
 

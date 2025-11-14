@@ -34,9 +34,6 @@ export default function RootLayout() {
                             headerShown: false,
                         }}
                     />
-                    <Stack.Screen name='auth' />
-                    <Stack.Screen name='dashboard' />
-                    <Stack.Screen name='home' />
                 </Stack>
             </AuthProvider>
         </SafeAreaProvider>
