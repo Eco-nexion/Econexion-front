@@ -2,7 +2,7 @@ import { Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 WebBrowser.maybeCompleteAuthSession();
 
 interface GoogleAuthParams {
-    access_token?: string;
+    id_token?: string;
     token_type?: string;
     expires_in?: string;
     scope?: string;
@@ -21,71 +21,115 @@ export default function Home() {
     const [authError, setAuthError] = useState<string | null>(null);
     const [isExchanging, setIsExchanging] = useState(false);
 
-    const redirectUri = makeRedirectUri();
+    const redirectUri = makeRedirectUri({ scheme: 'com.econexion' });
+    //const redirectUri = makeRedirectUri({ useProxy: true }as any);
+
+
     const clientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-    const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+    // const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
     const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 
     const [request, response, promptAsync] = Google.useAuthRequest({
-        iosClientId: iosClientId,
         androidClientId: androidClientId,
         clientId: clientId,
-        responseType: 'token',
+        responseType: 'id_token',
         scopes: ['openid', 'email', 'profile'],
         redirectUri,
-        // biome-ignore lint/style/useNamingConvention: <is PKCE>
         usePKCE: false,
         selectAccount: true,
     });
 
     useEffect(() => {
-        if (!response) {
-            return;
-        }
+        const handleAuthResponse = async () => {
 
-        if (response.type === 'success') {
-            setIsExchanging(false);
-            setAuthError(null);
-
-            const auth = response.authentication;
-            const accessToken = auth?.accessToken ?? (response.params as GoogleAuthParams)?.access_token;
-
-            if (!accessToken) {
-                setAuthError('No se recibió access_token. Revisa la configuración de OAuth.');
+            if (!response) {
                 return;
             }
 
-            console.log(accessToken);
+            if (response.type === 'success') {
+                setIsExchanging(false);
+                setAuthError(null);
 
-            // mocking the exchange process
-            const mockResponse = {
-                user: {
-                    id: 'mock-user-id-123',
-                    email: 'Google@example.com',
-                    name: 'Google Mock',
-                    user_type: 'compra',
-                },
-                token: 'mock-jwt-token-google-abc123xyz',
-            };
+                const auth = response.authentication;
+                const idToken = auth?.idToken ?? (response.params as GoogleAuthParams)?.id_token;
 
-            // Simular delay de red
-            setTimeout(async () => {
-                console.log('Mock response:', mockResponse);
-                await storage.setItem(STORAGE_KEYS.token, mockResponse.token);
-                await storage.setItem(STORAGE_KEYS.user_name, mockResponse.user.name);
-                await storage.setItem(STORAGE_KEYS.user_email, mockResponse.user.email);
-                await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.user_type);
-            }, 1000);
-        } else if (response.type === 'error') {
-            setIsExchanging(false);
-            console.error('OAuth error:', response.error);
-            setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
-        } else if (response.type === 'cancel') {
-            setIsExchanging(false);
-            setAuthError('Autenticación cancelada');
-        } else if (response.type === 'dismiss') {
-            setIsExchanging(false);
-        }
+                if (!idToken) {
+                    setAuthError('No se recibió access_token. Revisa la configuración de OAuth.');
+                    return;
+                }
+
+                console.log(idToken);
+                await storage.setItem(STORAGE_KEYS.token, idToken);
+                await fetch("http://app-back.gdg7amgzcxgzbygk.eastus2.azurecontainer.io:35000/api/auth/login/google",
+                    {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accessToken: idToken }),
+                })
+                .then(async response => {
+                    console.log("Respuesta del login:", response);
+                    if (response.status != 200) {
+                        router.push('/userDetails');
+                    } else {
+                        router.push('/dashboard');
+                    }
+                    return response;
+                })
+                
+                
+
+
+
+                    // const exist = await fetch("http://app-back.gdg7amgzcxgzbygk.eastus2.azurecontainer.io:35000/lab/users/exists/karen.mayorga.gomes@gmail.com", 
+                //     {
+                //     method: 'GET',
+                //     headers: {
+                //         'Authorization': `Bearer ${idToken}`,
+                //     },
+                // })
+                // .then(response => response.json())  
+
+                // console.log("Existencia de usuario:", exist);
+                
+                //router.push('/userDetails');
+
+
+
+
+
+                // // mocking the exchange process
+                // const mockResponse = {
+                //     user: {
+                //         id: 'mock-user-id-123',
+                //         email: 'Google@example.com',
+                //         name: 'Google Mock',
+                //         user_type: 'compra',
+                //     },
+                //     token: 'mock-jwt-token-google-abc123xyz',
+                // };
+
+                // Simular delay de red
+                // setTimeout(async () => {
+                //     console.log('Mock response:', mockResponse);
+                //     await storage.setItem(STORAGE_KEYS.token, mockResponse.token);
+                //     await storage.setItem(STORAGE_KEYS.user_name, mockResponse.user.name);
+                //     await storage.setItem(STORAGE_KEYS.user_email, mockResponse.user.email);
+                //     await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.user_type);
+                // }, 1000);
+            } else if (response.type === 'error') {
+                setIsExchanging(false);
+                console.error('OAuth error:', response.error);
+                setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
+            } else if (response.type === 'cancel') {
+                setIsExchanging(false);
+                setAuthError('Autenticación cancelada');
+            } else if (response.type === 'dismiss') {
+                setIsExchanging(false);
+            }
+        };
+        handleAuthResponse();
     }, [response]);
 
     return (

@@ -1,70 +1,71 @@
 {
-	"expo": {
-		"name": "Econexion",
-		"slug": "econexion-app",
-		"version": "1.0.0",
-		"description": "Aplicación móvil para promover conexiones ecológicas y sostenibilidad ambiental",
-		"orientation": "portrait",
-		"scheme": "econexion",
-		"userInterfaceStyle": "automatic",
-		"newArchEnabled": true,
-		"primaryColor": "#22C55E",
-		"backgroundColor": "#F0FDF4",
-		"splash": {
-			"resizeMode": "contain",
-			"backgroundColor": "#F0FDF4"
-		},
-		"assetBundlePatterns": [
-			"**/*"
-		],
-		"ios": {
-			"supportsTablet": true,
-			"bundleIdentifier": "com.econexion.app",
-			"buildNumber": "1.0.0",
-			"infoPlist": {
-				"UIRequiresFullScreen": false,
-				"NSLocationWhenInUseUsageDescription": "Esta aplicación utiliza la ubicación para encontrar iniciativas ecológicas cercanas.",
-				"NSCameraUsageDescription": "Esta aplicación utiliza la cámara para capturar imágenes de actividades ecológicas.",
-				"NSPhotoLibraryUsageDescription": "Esta aplicación accede a la galería para seleccionar fotos de actividades ambientales."
-			}
-		},
-		"android": {
-			"package": "com.econexion.app",
-			"versionCode": 1,
-			"adaptiveIcon": {
-				"backgroundColor": "#22C55E"
-			},
-			"permissions": [
-				"ACCESS_FINE_LOCATION",
-				"ACCESS_COARSE_LOCATION",
-				"CAMERA",
-				"READ_EXTERNAL_STORAGE"
-			],
-			"edgeToEdgeEnabled": true,
-			"predictiveBackGestureEnabled": false
-		},
-		"web": {
-			"output": "static",
-			"bundler": "metro"
-		},
-		"plugins": [
-			"expo-router",
-			"expo-splash-screen",
-			"expo-web-browser",
-			"expo-secure-store"
-		],
-		"experiments": {
-			"typedRoutes": true,
-			"reactCompiler": true
-		},
-		"extra": {
-			"router": {
-				"origin": false
-			},
-			"eas": {
-				"projectId": "6b6db966-6ffc-4a6b-a927-617a39b0e3d4"
-			}
-		},
-		"owner": "automemorynn"
-	}
+  "expo": {
+    "name": "Econexion",
+    "slug": "econexion-app",
+    "version": "1.0.0",
+    "description": "Aplicación móvil para promover conexiones ecológicas y sostenibilidad ambiental",
+    "orientation": "portrait",
+    "scheme": "econexion",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "primaryColor": "#22C55E",
+    "backgroundColor": "#F0FDF4",
+    "splash": {
+      "image": "./src/assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F0FDF4"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.econexion.app",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "UIRequiresFullScreen": false,
+        "NSLocationWhenInUseUsageDescription": "Esta aplicación utiliza la ubicación para encontrar iniciativas ecológicas cercanas.",
+        "NSCameraUsageDescription": "Esta aplicación utiliza la cámara para capturar imágenes de actividades ecológicas.",
+        "NSPhotoLibraryUsageDescription": "Esta aplicación accede a la galería para seleccionar fotos de actividades ambientales."
+      }
+    },
+    "android": {
+      "package": "com.econexion.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#22C55E"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-web-browser",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "owner": "xxelingexx",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "920e6368-8d41-4926-a994-a0d6ef121077"
+      }
+    }
+  }
 }

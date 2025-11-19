@@ -107,7 +107,6 @@ export default function Register() {
                         style={styles.input}
                         value={form.companyName}
                         onChangeText={(t) => setField('companyName', t)}
-                        placeholder='Eco-nexión S.A.S.'
                     />
                 </Field>
 
