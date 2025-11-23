@@ -1,5 +1,6 @@
 // Reusable components will go here
 
+export { default as ConversationCard } from './ConversationCard';
 export { default as CreateOfferModal } from './CreateOfferModal';
 export { default as CreatePostModal } from './CreatePostModal';
 export { default as DeleteAccountModal } from './DeleteAccountModal';

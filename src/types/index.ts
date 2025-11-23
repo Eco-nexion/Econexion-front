@@ -124,3 +124,59 @@ export interface UpdateOfferRequest {
     message: string;
     status?: OfferStatus; // Opcional para aceptar/rechazar
 }
+
+/**
+ * Mensaje de chat
+ * Schema del backend
+ */
+export interface Message {
+    id: number;
+    text: string;
+    senderId: number;
+    createdAt: string; // ISO timestamp
+}
+
+/**
+ * Conversación completa con mensajes
+ * Schema del backend
+ */
+export interface Conversation {
+    id: number;
+    offerId: number;
+    participants: number[]; // [participant1Id, participant2Id]
+    messages: Message[];
+}
+
+/**
+ * Resumen de conversación para lista
+ * DTO del backend GET /api/chat/conversations
+ */
+export interface ConversationSummary {
+    conversationId: number;
+    offerId: number;
+    participant1Id: number;
+    participant2Id: number;
+    updatedAt: string; // ISO timestamp
+    lastMessagePreview: string;
+    preview: string; // Alias de lastMessagePreview
+}
+
+/**
+ * Request para crear nueva conversación
+ * POST /api/chat/conversations
+ */
+export interface CreateConversationRequest {
+    offerId: number;
+    senderId: number;
+    receiverId: number;
+    firstMessage?: string;
+}
+
+/**
+ * Request para enviar mensaje
+ * POST /api/chat/conversations/{id}/messages
+ */
+export interface SendMessageRequest {
+    senderId: number;
+    text: string;
+}

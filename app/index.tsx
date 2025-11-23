@@ -149,7 +149,7 @@ export default function Home() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: Colors.lightGray,
+        backgroundColor: '#dddddd',
     },
     container: {
         flex: 1,

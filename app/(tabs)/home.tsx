@@ -7,6 +7,7 @@ import type { Offer, OfferStatus } from '@/src/types';
 import { BorderRadius, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '@utils';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ type ViewMode = 'received' | 'sent';
 type FilterStatus = OfferStatus | 'ALL';
 
 export default function HomeTab() {
+    const router = useRouter();
     const [currentUserId, setCurrentUserId] = useState<string>('');
     const [viewMode, setViewMode] = useState<ViewMode>('received');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
@@ -189,8 +191,11 @@ export default function HomeTab() {
                 Alert.alert('Ver publicación', 'Funcionalidad pendiente');
             }}
             onOpenChat={() => {
-                // TODO: Navegar a chat
-                Alert.alert('Chat', 'Funcionalidad pendiente');
+                if (item.conversation) {
+                    router.push(`/chat/${item.conversation}` as never);
+                } else {
+                    Alert.alert('Chat', 'No hay conversación activa para esta oferta');
+                }
             }}
         />
     );
