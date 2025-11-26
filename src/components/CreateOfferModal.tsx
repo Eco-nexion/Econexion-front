@@ -86,12 +86,15 @@ export default function CreateOfferModal({
                     </View>
 
                     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                        {/* Publicación info */}
-                        <View style={styles.publicationInfo}>
-                            <Ionicons name='document-text-outline' size={20} color={Colors.ecoGreen} />
-                            <Text style={styles.publicationTitle} numberOfLines={2}>
-                                {publicationTitle}
-                            </Text>
+                        {/* Información de la publicación - Estilo destacado */}
+                        <View style={styles.publicationCard}>
+                            <Text style={styles.publicationLabel}>Estás haciendo una oferta para:</Text>
+                            <View style={styles.publicationInfo}>
+                                <Ionicons name='document-text' size={24} color={Colors.ecoGreen} />
+                                <Text style={styles.publicationTitle} numberOfLines={2}>
+                                    {publicationTitle}
+                                </Text>
+                            </View>
                         </View>
 
                         {/* Error general */}
@@ -197,20 +200,33 @@ const styles = StyleSheet.create({
     content: {
         padding: Spacing.md,
     },
+    publicationCard: {
+        backgroundColor: '#F0F9F0',
+        borderWidth: 2,
+        borderColor: Colors.ecoGreen,
+        borderRadius: BorderRadius.large,
+        padding: Spacing.md,
+        marginBottom: Spacing.lg,
+    },
+    publicationLabel: {
+        fontSize: FontSize.small,
+        fontWeight: '600',
+        color: Colors.gray,
+        marginBottom: Spacing.sm,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
     publicationInfo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.sm,
-        backgroundColor: Colors.lightGray,
-        padding: Spacing.md,
-        borderRadius: BorderRadius.medium,
-        marginBottom: Spacing.md,
     },
     publicationTitle: {
         flex: 1,
-        fontSize: FontSize.medium,
-        fontWeight: '600',
+        fontSize: FontSize.large,
+        fontWeight: '700',
         color: Colors.text,
+        lineHeight: 24,
     },
     errorBox: {
         flexDirection: 'row',

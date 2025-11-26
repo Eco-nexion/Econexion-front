@@ -142,9 +142,10 @@ export default function PublicationsTab() {
                     />
                 )}
 
-                {/* FAB - Botón flotante */}
-                <Pressable style={styles.fab} onPress={() => setCreateModalVisible(true)}>
-                    <Ionicons name='add' size={28} color='#fff' />
+                {/* Botón crear publicación */}
+                <Pressable style={styles.createButton} onPress={() => setCreateModalVisible(true)}>
+                    <Ionicons name='add-circle' size={24} color='#fff' />
+                    <Text style={styles.createButtonText}>Crear Publicación</Text>
                 </Pressable>
             </View>
 
@@ -233,20 +234,26 @@ const styles = StyleSheet.create({
         color: Colors.gray,
         textAlign: 'center',
     },
-    fab: {
+    createButton: {
         position: 'absolute',
         right: Spacing.lg,
         bottom: Spacing.lg,
-        width: 56,
-        height: 56,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.ecoGreen,
-        justifyContent: 'center',
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: Spacing.sm,
+        backgroundColor: Colors.ecoGreen,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: BorderRadius.full,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,
+    },
+    createButtonText: {
+        fontSize: FontSize.large,
+        fontWeight: '700',
+        color: '#fff',
     },
 });
