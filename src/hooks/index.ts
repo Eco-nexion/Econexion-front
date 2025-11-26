@@ -1,2 +1,3 @@
 // Custom hooks will go here
-export {};
+
+export { useUserDashboard } from './useUserDashboard';

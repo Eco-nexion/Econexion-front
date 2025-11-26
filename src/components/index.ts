@@ -3,6 +3,7 @@
 export { default as ConversationCard } from './ConversationCard';
 export { default as CreateOfferModal } from './CreateOfferModal';
 export { default as CreatePostModal } from './CreatePostModal';
+export { default as DashboardCard } from './DashboardCard';
 export { default as DeleteAccountModal } from './DeleteAccountModal';
 export { default as EditOfferModal } from './EditOfferModal';
 export { default as EditProfileModal } from './EditProfileModal';

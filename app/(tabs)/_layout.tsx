@@ -33,6 +33,7 @@ export default function TabsLayout() {
                 name='home'
                 options={{
                     title: 'Inicio',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => <Ionicons name='home' size={size} color={color} />,
                 }}
             />
@@ -41,6 +42,13 @@ export default function TabsLayout() {
                 options={{
                     title: 'Publicaciones',
                     tabBarIcon: ({ color, size }) => <Ionicons name='newspaper-outline' size={size} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name='offers'
+                options={{
+                    title: 'Ofertas',
+                    tabBarIcon: ({ color, size }) => <Ionicons name='pricetag-outline' size={size} color={color} />,
                 }}
             />
             <Tabs.Screen
