@@ -21,9 +21,19 @@ interface RegisterResponse {
     };
 }
 
+interface GoogleRegisterResponse {
+    id: string;
+    enterpriseName: string;
+    username: string;
+    nit: string;
+    email: string;
+    rol: string;
+    password: string | null;
+}
+
 export const authService = {
     login: async (email: string, password: string): Promise<LoginResponse> => {
-        const response = await apiClient.post<LoginResponse>('/auth/login', {
+        const response = await apiClient.post<LoginResponse>('/api/auth/login', {
             email,
             password,
         });
@@ -31,7 +41,37 @@ export const authService = {
     },
 
     register: async (data: RegisterForm): Promise<RegisterResponse> => {
-        const response = await apiClient.post<RegisterResponse>('/auth/register', data);
+        const response = await apiClient.post<RegisterResponse>('/api/auth/register', data);
+        return response.data;
+    },
+
+    registerWithGoogle: async (data: RegisterForm, accessToken: string): Promise<GoogleRegisterResponse> => {
+        console.log('🔐 Registrando con Google OAuth...');
+        console.log('📧 Email:', data.email);
+        console.log('🏢 Enterprise:', data.enterpriseName);
+        console.log('👤 Username:', data.username);
+        console.log('🎭 Role:', data.role);
+        console.log('🔑 Token (primeros 30 chars):', accessToken.substring(0, 30) + '...');
+        console.log('🔑 Longitud del token:', accessToken.length);
+
+        const response = await apiClient.post<GoogleRegisterResponse>(
+            '/api/auth/register/google',
+            {
+                enterpriseName: data.enterpriseName,
+                username: data.username,
+                nit: data.nit || '',
+                email: data.email,
+                role: data.role,
+            },
+            {
+                headers: {
+                    // biome-ignore lint/style/useNamingConvention: Backend expects "Bearer <token>" format
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            }
+        );
+
+        console.log('✅ Registro exitoso:', response.data);
         return response.data;
     },
 

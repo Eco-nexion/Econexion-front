@@ -1,8 +1,8 @@
-import { useAuth } from '@/src/contexts/AuthContext';
-import { Colors, FontSize, Spacing } from '@constants';
+import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
+import { storage } from '@utils';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,13 +12,14 @@ WebBrowser.maybeCompleteAuthSession();
 
 interface GoogleAuthParams {
     access_token?: string;
+    id_token?: string;
     token_type?: string;
     expires_in?: string;
     scope?: string;
 }
 
 export default function Home() {
-    const { login } = useAuth();
+    const router = useRouter();
     const [authError, setAuthError] = useState<string | null>(null);
     const [isExchanging, setIsExchanging] = useState(false);
 
@@ -31,62 +32,83 @@ export default function Home() {
         iosClientId: iosClientId,
         androidClientId: androidClientId,
         clientId: clientId,
-        responseType: 'token',
+        responseType: 'id_token token',
         scopes: ['openid', 'email', 'profile'],
         redirectUri,
         // biome-ignore lint/style/useNamingConvention: <is PKCE>
         usePKCE: false,
         selectAccount: true,
+        extraParams: {
+            nonce: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        },
     });
 
     useEffect(() => {
-        if (!response) {
-            return;
-        }
-
-        if (response.type === 'success') {
-            setIsExchanging(false);
-            setAuthError(null);
-
-            const auth = response.authentication;
-            const accessToken = auth?.accessToken ?? (response.params as GoogleAuthParams)?.access_token;
-
-            if (!accessToken) {
-                setAuthError('No se recibió access_token. Revisa la configuración de OAuth.');
+        const handleAuthResponse = async () => {
+            if (!response) {
                 return;
             }
 
-            console.log(accessToken);
+            if (response.type === 'success') {
+                setIsExchanging(false);
+                setAuthError(null);
 
-            // mocking the exchange process
-            const mockResponse = {
-                user: {
-                    id: 'mock-google-user-456',
-                    enterpriseName: 'EcoTech Solutions',
-                    username: 'María González',
-                    nit: '800987654-2',
-                    email: 'maria.gonzalez@ecotech.com',
-                    rol: 'COMPRADOR',
-                },
-                token: 'mock-jwt-token-google-abc123xyz',
-            };
+                const auth = response.authentication;
+                const idToken = auth?.idToken ?? (response.params as GoogleAuthParams)?.id_token;
 
-            // Simular delay de red y luego usar el contexto de Auth
-            setTimeout(async () => {
-                console.log('Mock response:', mockResponse);
-                await login(mockResponse.token, mockResponse.user);
-            }, 1000);
-        } else if (response.type === 'error') {
-            setIsExchanging(false);
-            console.error('OAuth error:', response.error);
-            setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
-        } else if (response.type === 'cancel') {
-            setIsExchanging(false);
-            setAuthError('Autenticación cancelada');
-        } else if (response.type === 'dismiss') {
-            setIsExchanging(false);
-        }
-    }, [response, login]);
+                if (!idToken) {
+                    setAuthError('No se recibió id_token. Revisa la configuración de OAuth.');
+                    return;
+                }
+
+                console.log('🔑 ID TOKEN COMPLETO:', idToken);
+                console.log('📏 Longitud del token:', idToken.length);
+                console.log('🔍 Primeros 50 chars:', idToken.substring(0, 50));
+                console.log('🔍 Últimos 50 chars:', idToken.substring(idToken.length - 50));
+
+                await storage.setItem(STORAGE_KEYS.token, idToken);
+
+                console.log('📤 Enviando al backend:', JSON.stringify({ accessToken: idToken }));
+
+                await fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accessToken: idToken }),
+                })
+                    .then(async (response) => {
+                        console.log('📡 Status del backend:', response.status);
+                        const responseText = await response.text();
+                        console.log('📄 Respuesta completa del backend:', responseText);
+
+                        if (response.status !== 200) {
+                            console.log('❌ Login falló, redirigiendo a /register');
+                            router.push('/register');
+                        } else {
+                            console.log('✅ Login exitoso, redirigiendo a /(tabs)/home');
+                            router.push('/(tabs)/home');
+                        }
+                        return response;
+                    })
+                    .catch((error) => {
+                        console.error('Error en autenticación con backend:', error);
+                        setAuthError('Error al conectar con el servidor');
+                    });
+            } else if (response.type === 'error') {
+                setIsExchanging(false);
+                console.error('OAuth error:', response.error);
+                setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
+            } else if (response.type === 'cancel') {
+                setIsExchanging(false);
+                setAuthError('Autenticación cancelada');
+            } else if (response.type === 'dismiss') {
+                setIsExchanging(false);
+            }
+        };
+
+        handleAuthResponse();
+    }, [response, router]);
 
     return (
         <SafeAreaView style={styles.safeArea}>

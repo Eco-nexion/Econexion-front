@@ -1,8 +1,9 @@
-import { Colors, FontSize, Spacing } from '@constants';
-import { isEmailValid, MAX_PHOTO_SIZE_MB, type RegisterForm, type RegisterFormErrors, type Role } from '@type/forms';
-import { Link } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { RegisterForm, RegisterFormErrors, Role } from '@type/forms';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const roles: { label: string; value: Role }[] = [
@@ -11,103 +12,151 @@ const roles: { label: string; value: Role }[] = [
 ];
 
 export default function Register() {
+    const router = useRouter();
+
     const [form, setForm] = useState<RegisterForm>({
         companyName: '',
         nit: '',
         userName: '',
-        position: '',
-        photoUri: undefined,
         email: '',
-        password: '',
-        confirmPassword: '',
         role: 'comprador',
     });
 
     const [errors, setErrors] = useState<RegisterFormErrors>({});
     const [submittedData, setSubmittedData] = useState<RegisterForm | null>(null);
-    // state for UI only if needed later
 
-    const setField = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) =>
-        setForm((prev) => {
-            const next = { ...prev, [key]: value };
-            // Recalcular errores en cada cambio para habilitar/deshabilitar el botón inmediatamente
-            setErrors(collectErrors(next));
-            return next;
-        });
+    const decodeIdToken = (token: string) => {
+        try {
+            // El JWT tiene 3 partes separadas por puntos: header.payload.signature
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                throw new Error('Token inválido');
+            }
+
+            // Decodificar la parte payload (segunda parte)
+            const payload = parts[1];
+
+            // Convertir Base64URL a string
+            const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+
+            // Parsear como JSON
+            return JSON.parse(decoded);
+        } catch (err) {
+            console.error('Error decodificando ID Token:', err);
+            return null;
+        }
+    };
+
+    useEffect(() => {
+        const loadGoogleUser = async () => {
+            try {
+                console.log('Cargando datos de usuario de Google...');
+                const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+
+                if (!idToken) {
+                    console.error('No se encontró el ID Token');
+                    return;
+                }
+
+                // Decodificar el ID Token
+                const userData = decodeIdToken(idToken);
+
+                if (!userData) {
+                    console.error('No se pudo decodificar el ID Token');
+                    return;
+                }
+
+                console.log('📦 Datos del usuario:', userData);
+
+                setForm((prev) => ({
+                    ...prev,
+                    userName: userData.name || '',
+                    email: userData.email || '',
+                }));
+            } catch (err) {
+                console.error('Error cargando datos de Google', err);
+            }
+        };
+
+        loadGoogleUser();
+    }, []);
+
+    const setField = (field: keyof RegisterForm, value: any) => {
+        setForm((prev) => ({ ...prev, [field]: value }));
+    };
 
     const collectErrors = (f: RegisterForm): RegisterFormErrors => {
         const e: RegisterFormErrors = {};
-        const requiredKeys = ['companyName', 'userName', 'position', 'email'] as const;
-        for (const k of requiredKeys) {
-            const v = f[k];
-            if (typeof v === 'string') {
-                if (!v.trim()) {
-                    e[k] = 'Requerido';
-                }
+        const required = ['companyName', 'userName', 'email'] as const;
+        for (const key of required) {
+            if (!(f[key] && f[key].toString().trim())) {
+                e[key] = 'Requerido';
             }
-        }
-        if (!f.role) {
-            e.role = 'Requerido';
-        }
-        if (!f.password) {
-            e.password = 'Requerido';
-        }
-        if (!f.confirmPassword) {
-            e.confirmPassword = 'Requerido';
-        }
-        if (f.email && !isEmailValid(f.email)) {
-            e.email = 'Correo inválido';
-        }
-        if (f.password && f.confirmPassword && f.password !== f.confirmPassword) {
-            e.confirmPassword = 'Las contraseñas no coinciden';
         }
         return e;
     };
 
     const validate = (): boolean => {
-        const e = collectErrors(form);
-        setErrors(e);
-        return Object.keys(e).length === 0;
+        const errs = collectErrors(form);
+        setErrors(errs);
+        return Object.keys(errs).length === 0;
     };
 
-    const onPickImage = () => {
-        // Placeholder: aquí puedes integrar expo-image-picker cuando lo agregues a dependencies
-        const demoUrl = 'https://via.placeholder.com/80';
-        setField('photoUri', demoUrl);
-        setErrors((prev) => ({ ...prev, photoUri: undefined }));
+    const isSubmitDisabled = (): boolean => {
+        return !(form.companyName.trim() && form.userName.trim());
     };
 
-    const isSubmitDisabled = () => {
-        const requiredFilled =
-            form.companyName.trim().length > 0 &&
-            form.userName.trim().length > 0 &&
-            form.position.trim().length > 0 &&
-            form.email.trim().length > 0 &&
-            form.password.trim().length > 0 &&
-            form.confirmPassword.trim().length > 0 &&
-            !!form.role;
-        return !requiredFilled || Object.keys(errors).length > 0;
-    };
+    const onSubmit = async () => {
+        if (!validate()) return;
 
-    const onSubmit = () => {
-        if (!validate()) {
-            return;
+        try {
+            const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+
+            console.log('🔑 TOKEN A ENVIAR:', idToken?.substring(0, 50) + '...');
+            console.log('📏 Longitud del token:', idToken?.length);
+
+            const URL_REGISTER =
+                'http://app-back.gdg7amgzcxgzbygk.eastus2.azurecontainer.io:35000/api/auth/register/google';
+            //const URL_REGISTER ='http://localhost:35000/api/auth/register/google';
+            const response = await fetch(URL_REGISTER, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    enterpriseName: form.companyName,
+                    username: form.userName,
+                    nit: form.nit,
+                    email: form.email,
+                    role: form.role,
+                }),
+            });
+            console.log('Respuesta del registro:', response);
+
+            if (!response.ok) throw new Error('Error al registrar usuario');
+
+            const data = await response.json();
+            console.log('✅ Registro completado:', data);
+            setSubmittedData(form);
+
+            // Redirige después del registro
+            router.replace('/dashboard');
+        } catch (err) {
+            console.error('❌ Error en el registro:', err);
         }
-        // Mostrar datos en pantalla para la demo
-        setSubmittedData(form);
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps='handled'>
-                <Text style={styles.header}>Registro</Text>
+                <Text style={styles.header}>Completa tu registro</Text>
 
                 <Field label='Nombre de la empresa' error={errors.companyName}>
                     <TextInput
                         style={styles.input}
                         value={form.companyName}
                         onChangeText={(t) => setField('companyName', t)}
-                        placeholder='Eco-nexión S.A.S.'
                     />
                 </Field>
 
@@ -121,60 +170,14 @@ export default function Register() {
                 </Field>
 
                 <Field label='Nombre del usuario' error={errors.userName}>
-                    <TextInput
-                        style={styles.input}
-                        value={form.userName}
-                        onChangeText={(t) => setField('userName', t)}
-                        placeholder='Nombre y apellido'
-                    />
+                    <TextInput style={[styles.input, { backgroundColor: '#eee' }]} value={form.userName} />
                 </Field>
 
-                <Field label='Cargo en la empresa' error={errors.position}>
+                <Field label='Correo electrónico' error={errors.email}>
                     <TextInput
-                        style={styles.input}
-                        value={form.position}
-                        onChangeText={(t) => setField('position', t)}
-                        placeholder='Ej. Compras'
-                    />
-                </Field>
-
-                <Field label='Foto (opcional)' error={errors.photoUri}>
-                    <View style={styles.row}>
-                        <Pressable style={styles.buttonOutline} onPress={onPickImage}>
-                            <Text style={styles.buttonOutlineText}>Elegir foto</Text>
-                        </Pressable>
-                        {form.photoUri ? <Image source={{ uri: form.photoUri }} style={styles.thumb} /> : null}
-                    </View>
-                </Field>
-
-                <Field label='Correo' error={errors.email}>
-                    <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: '#eee' }]}
                         value={form.email}
-                        onChangeText={(t) => setField('email', t)}
-                        placeholder='correo@dominio.com'
-                        keyboardType='email-address'
-                        autoCapitalize='none'
-                    />
-                </Field>
-
-                <Field label='Contraseña' error={errors.password}>
-                    <TextInput
-                        style={styles.input}
-                        value={form.password}
-                        onChangeText={(t) => setField('password', t)}
-                        placeholder='Ingresa tu clave'
-                        secureTextEntry
-                    />
-                </Field>
-
-                <Field label='Verificar contraseña' error={errors.confirmPassword}>
-                    <TextInput
-                        style={styles.input}
-                        value={form.confirmPassword}
-                        onChangeText={(t) => setField('confirmPassword', t)}
-                        placeholder='Repite tu clave'
-                        secureTextEntry
+                        editable={false}
                     />
                 </Field>
 
@@ -198,113 +201,66 @@ export default function Register() {
                     style={[styles.submit, isSubmitDisabled() && styles.submitDisabled]}
                     onPress={onSubmit}
                     disabled={isSubmitDisabled()}
-                    accessibilityRole='button'
                 >
-                    <Text style={styles.submitText}>Confirmar</Text>
+                    <Text style={styles.submitText}>Confirmar registro</Text>
                 </Pressable>
 
-                <View style={styles.loginRow}>
-                    <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
-                    <Link href={{ pathname: '/login' }} style={styles.loginLink}>
-                        Inicia sesión
-                    </Link>
-                </View>
-
-                {submittedData ? (
+                {submittedData && (
                     <View style={styles.noteBox}>
                         <Text style={styles.noteTitle}>Datos enviados</Text>
                         <Text style={styles.noteText}>{JSON.stringify(submittedData, null, 2)}</Text>
-                        <Text style={[styles.noteText, { marginTop: Spacing.sm }]}>
-                            Aquí continúa el flujo: redirigir a #34 (Comprador) o #36 (Vendedor) según el rol.
-                        </Text>
                     </View>
-                ) : null}
-
-                <View style={styles.noteBox}>
-                    <Text style={styles.noteTitle}>Notas</Text>
-                    <Text style={styles.noteText}>
-                        - Los campos obligatorios no pueden estar vacíos.{'\n'}- El correo debe tener un formato válido.
-                        {'\n'}- La foto no puede ser muy pesada (límite: {MAX_PHOTO_SIZE_MB}MB).
-                    </Text>
-                </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
-    return (
-        <View style={{ marginBottom: Spacing.md }}>
-            <Text style={styles.label}>{label}</Text>
-            {children}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-        </View>
-    );
-}
+// --- COMPONENTE FIELD AUXILIAR ---
+const Field = ({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) => (
+    <View style={{ marginBottom: Spacing.md }}>
+        <Text style={styles.label}>{label}</Text>
+        {children}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+);
 
+// --- ESTILOS ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: Colors.lightGray },
     container: { padding: Spacing.lg },
-    header: { fontSize: 28, fontWeight: '800', color: Colors.ecoGreen, marginBottom: Spacing.lg },
-    label: { fontSize: FontSize.medium, color: Colors.gray, marginBottom: Spacing.xs },
+    header: { fontSize: 28, fontWeight: 'bold', marginBottom: Spacing.md },
+    label: { fontSize: FontSize.medium, color: Colors.gray },
     input: {
-        borderWidth: 1,
-        borderColor: Colors.gray,
-        borderRadius: 10,
         backgroundColor: '#fff',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        fontSize: FontSize.medium,
-    },
-    error: { color: '#D00', marginTop: Spacing.xs },
-    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    buttonOutline: {
         borderWidth: 1,
-        borderColor: Colors.ecoGreen,
+        borderColor: '#ccc',
         borderRadius: 10,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        backgroundColor: '#fff',
+        padding: Spacing.sm,
+        marginTop: 4,
     },
-    buttonOutlineText: { color: Colors.ecoGreen, fontWeight: '600' },
-    thumb: { width: 40, height: 40, borderRadius: 8 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     chip: {
         borderWidth: 1,
         borderColor: Colors.gray,
-        borderRadius: 20,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        marginRight: 8,
     },
-    chipSelected: { backgroundColor: Colors.limeGreen, borderColor: Colors.limeGreen },
+    chipSelected: { backgroundColor: Colors.ecoGreen },
     chipText: { color: Colors.gray },
-    chipTextSelected: { color: '#fff', fontWeight: '600' },
+    chipTextSelected: { color: '#fff' },
     submit: {
-        marginTop: Spacing.lg,
         backgroundColor: Colors.ecoGreen,
-        padding: Spacing.md,
+        padding: 12,
         borderRadius: 10,
-        alignItems: 'center',
-    },
-    submitDisabled: { backgroundColor: Colors.gray },
-    submitText: { color: '#fff', fontWeight: '700', fontSize: FontSize.medium },
-    loginRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: Spacing.xs,
         marginTop: Spacing.md,
     },
-    loginText: { color: Colors.gray },
-    loginLink: { color: Colors.cyan, fontWeight: '600' },
-    noteBox: {
-        marginTop: Spacing.lg,
-        backgroundColor: '#FFFFFFAA',
-        borderWidth: 1,
-        borderColor: Colors.gray,
-        borderRadius: 12,
-        padding: Spacing.md,
-    },
-    noteTitle: { fontWeight: '700', marginBottom: Spacing.xs, color: Colors.gray },
-    noteText: { color: Colors.gray },
+    submitDisabled: { backgroundColor: '#aaa' },
+    submitText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
+    error: { color: 'red', fontSize: FontSize.small },
+    noteBox: { backgroundColor: '#eee', padding: Spacing.sm, borderRadius: 8, marginTop: 16 },
+    noteTitle: { fontWeight: 'bold' },
+    noteText: { fontSize: FontSize.small, color: '#444' },
 });
