@@ -78,11 +78,17 @@ export default function Home() {
             .then(loginRes => {
                 console.log('📡 Status:', loginRes.status);
                 
-                if (loginRes.status !== 200) {
-                    console.log('➡️ Nuevo usuario');
+                if (loginRes.status === 401) {
+                    // Usuario no registrado - redirigir a registro
+                    console.log('➡️ Usuario no registrado (401), ir a registro');
                     setIsExchanging(false);
                     router.push('/register');
                     return null;
+                }
+                
+                if (!loginRes.ok) {
+                    // Otro error - mostrar notificación
+                    throw new Error(`Error ${loginRes.status}: Error al autenticar con Google`);
                 }
                 
                 return loginRes.json();
@@ -94,7 +100,10 @@ export default function Home() {
                 return fetch(`${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(loginData.email)}`);
             })
             .then(userRes => {
-                if (!userRes || !userRes.ok) return null;
+                if (!userRes || !userRes.ok) {
+                    if (!userRes) return null;
+                    throw new Error(`Error al obtener datos del usuario (${userRes.status})`);
+                }
                 return userRes.json();
             })
             .then(userData => {

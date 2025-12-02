@@ -10,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const roles: { label: string; value: Role }[] = [
     { label: 'Comprador', value: 'BUYER' },
     { label: 'Vendedor', value: 'SELLER' },
-    { label: 'Administrador', value: 'ADMIN' },
 ];
 
 const decodeIdToken = (token: string) => {
