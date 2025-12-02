@@ -1,118 +1,44 @@
-import apiClient from './axiosConfig';
+import apiClient from '@/src/services/axiosConfig';
+import { Offer } from '@type/offer';
 
-export interface Offer {
-    id: string;
-    postId: string;
-    userId: string;
-    amount: number;
-    message?: string;
-    status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
-    createdAt: string;
-    updatedAt: string;
-    post?: {
-        id: string;
-        title: string;
-        wasteType: string;
-        imageUrl?: string;
-    };
-    user?: {
-        id: string;
-        name: string;
-        email: string;
-    };
-}
-
-export interface CreateOfferRequest {
-    postId: string;
+interface CreateOfferDTO {
+    publicationId: string;
     amount: number;
     message?: string;
 }
 
-export interface UpdateOfferRequest {
-    amount?: number;
-    message?: string;
-    status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
-}
+export const OffersService = {
+    async createOffer(data: CreateOfferDTO): Promise<Offer> {
+        const response = await apiClient.post<Offer>('/offers/new', data);
+        return response.data;
+    },
 
-class OffersService {
-    // Obtener todas las ofertas
-    async getOffers(): Promise<Offer[]> {
-        try {
-            const response = await apiClient.get<Offer[]>('/offers');
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al obtener ofertas');
-        }
-    }
-
-    // Obtener una oferta por ID
     async getOfferById(id: string): Promise<Offer> {
-        try {
-            const response = await apiClient.get<Offer>(`/offers/${id}`);
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al obtener la oferta');
-        }
-    }
+        const response = await apiClient.get<Offer>(`/offers/${id}`);
+        return response.data;
+    },
 
-    // Crear una nueva oferta
-    async createOffer(offerData: CreateOfferRequest): Promise<Offer> {
-        try {
-            const response = await apiClient.post<Offer>('/offers/new', offerData);
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al crear oferta');
-        }
-    }
+    async updateOffer(offer: Offer): Promise<Offer> {
+        const response = await apiClient.put<Offer>('/offers/update', offer);
+        return response.data;
+    },
 
-    // Actualizar una oferta
-    async updateOffer(id: string, offerData: UpdateOfferRequest): Promise<Offer> {
-        try {
-            const response = await apiClient.put<Offer>(`/offers/update/${id}`, offerData);
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al actualizar oferta');
-        }
-    }
-
-    // Eliminar una oferta
     async deleteOffer(id: string): Promise<void> {
-        try {
-            await apiClient.delete(`/offers/${id}`);
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al eliminar oferta');
-        }
-    }
+        await apiClient.delete(`/offers/${id}`);
+    },
 
-    // Obtener ofertas recibidas (para generadores)
-    async getReceivedOffers(): Promise<Offer[]> {
-        try {
-            const response = await apiClient.get<Offer[]>('/offers/received');
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al obtener ofertas recibidas');
-        }
-    }
+    async getReceivedOffers(): Promise<Offer[]> {  // Para generador: Offers en mis posts
+        const response = await apiClient.get<Offer[]>('/offers/received');  // Asume endpoint nuevo en backend
+        return response.data;
+    },
 
-    // Obtener ofertas enviadas (para recicladores)
-    async getSentOffers(): Promise<Offer[]> {
-        try {
-            const response = await apiClient.get<Offer[]>('/offers/sent');
-            return response.data;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || 'Error al obtener ofertas enviadas');
-        }
-    }
+    async getSentOffers(): Promise<Offer[]> {  // Para reciclador: Mis offers
+        const response = await apiClient.get<Offer[]>('/offers/sent');  // Asume endpoint nuevo
+        return response.data;
+    },
 
-    // Aceptar una oferta
-    async acceptOffer(id: string): Promise<Offer> {
-        return this.updateOffer(id, { status: 'ACCEPTED' });
-    }
-
-    // Rechazar una oferta
-    async rejectOffer(id: string): Promise<Offer> {
-        return this.updateOffer(id, { status: 'REJECTED' });
-    }
-}
-
-export default new OffersService();
+    async getOffersByPostId(postId: string): Promise<Offer[]> {
+        const response = await apiClient.get<Offer[]>(`/posts/${postId}/offers`);  // Asume endpoint; sino, getPostById y extrae offers
+        return response.data;
+    },
+};

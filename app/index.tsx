@@ -1,5 +1,6 @@
 import { Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
+import { AuthService } from '@/src/services/authService';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import { Link } from 'expo-router';
@@ -7,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -18,6 +20,7 @@ interface GoogleAuthParams {
 }
 
 export default function Home() {
+    const router = useRouter();
     const [authError, setAuthError] = useState<string | null>(null);
     const [isExchanging, setIsExchanging] = useState(false);
 
@@ -57,13 +60,31 @@ export default function Home() {
 
             console.log(accessToken);
 
+            // Placeholder para call real a backend /auth/google (agrega en backend)
+            // try {
+            //     const backendResponse = await apiClient.post('/auth/google', { access_token: accessToken });
+            //     // Almacena como en AuthService
+            //     await storage.setItem(STORAGE_KEYS.token, backendResponse.data.token);
+            //     // ... resto
+            //     // Redirigir basado en role
+            //     if (backendResponse.data.user.role === 'GENERATOR') {
+            //         router.replace('/(dashboard)');
+            //     } else {
+            //         router.replace('/(dashboard)/search');
+            //     }
+            // } catch (err) {
+            //     setAuthError('Error en auth con backend');
+            // }
+
+            // MOCK ANTERIOR: Mantengo por ahora hasta implementar /auth/google en backend
+
             // mocking the exchange process
             const mockResponse = {
                 user: {
                     id: 'mock-user-id-123',
                     email: 'Google@example.com',
                     name: 'Google Mock',
-                    user_type: 'compra',
+                    role: 'RECYCLER', // Ajustado a enum backend
                 },
                 token: 'mock-jwt-token-google-abc123xyz',
             };
@@ -74,7 +95,12 @@ export default function Home() {
                 await storage.setItem(STORAGE_KEYS.token, mockResponse.token);
                 await storage.setItem(STORAGE_KEYS.user_name, mockResponse.user.name);
                 await storage.setItem(STORAGE_KEYS.user_email, mockResponse.user.email);
-                await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.user_type);
+                await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.role);
+                if (mockResponse.user.role === 'GENERATOR') {
+                    router.replace('/dashboard');
+                } else {
+                    router.replace('/dashboard/search');
+                }
             }, 1000);
         } else if (response.type === 'error') {
             setIsExchanging(false);
@@ -127,7 +153,7 @@ export default function Home() {
                         <Text style={styles.googleText}>{isExchanging ? 'Conectando' : 'Continuar con Google'}</Text>
                     </Pressable>
 
-                    <Link href='/login' asChild>
+                    <Link href='/auth/login' asChild>
                         <Pressable style={styles.econexionButton}>
                             <Text style={styles.econexionButtonText}>♻️ Iniciar con Econexion</Text>
                         </Pressable>
@@ -135,7 +161,7 @@ export default function Home() {
 
                     {authError ? <Text style={{ color: '#C00' }}>{authError}</Text> : null}
 
-                    <Link href='/register' asChild>
+                    <Link href='/auth/register' asChild>
                         <Pressable style={styles.ctaButton}>
                             <Text style={styles.ctaButtonText}>Ir al registro</Text>
                         </Pressable>

@@ -1,59 +1,60 @@
-import { STORAGE_KEYS } from '@constants';
-import { storage } from '@utils';
+import { Colors, FontSize, Spacing } from '@constants';
+import { useAuth } from '@/src/contexts/AuthContext'; // Asegura import correcto
 import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const Colors = {
-    lightGray: '#F5F6F7',
-    ecoGreen: '#0BB24D',
-    gray: '#6B7280',
-    cyan: '#06B6D4',
-};
-
-const Spacing = {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-};
-
-const FontSize = {
-    medium: 16,
-};
 
 export default function Login() {
     const router = useRouter();
+    const { signIn, user, loading: authLoading } = useAuth(); // Nuevo: Usa loading del context    const [email, setEmail] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [showErrorModal, setShowErrorModal] = useState(false);  // Nuevo: Modal para error
+    const [errorMessage, setErrorMessage] = useState('');
 
     const disabled = !isEmailValid(email) || password.trim().length === 0;
 
     const onSubmit = async () => {
-        setError(null);
         if (disabled) {
-            setError('Revisa tus datos e inténtalo de nuevo.');
+            setErrorMessage('Revisa tus datos e inténtalo de nuevo.');
+            setShowErrorModal(true);
             return;
         }
-        const mockResponse = {
-            user: {
-                id: 'mock-user-id-123',
-                email: 'Econexion@example.com',
-                name: 'Econexion Mock',
-                user_type: 'vende',
-            },
-            token: 'mock-jwt-token-econexion-abc123xyz',
-        };
-        await storage.setItem(STORAGE_KEYS.token, mockResponse.token);
-        await storage.setItem(STORAGE_KEYS.user_name, mockResponse.user.name);
-        await storage.setItem(STORAGE_KEYS.user_email, mockResponse.user.email);
-        await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.user_type);
 
-        router.replace('/');
+        const result = await signIn(email, password);
+        if (!result.success) {
+            setErrorMessage(result.error || 'Error desconocido');
+            setShowErrorModal(true);
+        }
+        // Redirección se maneja en useEffect (post-user update)
     };
+
+    // Redirige post-login basado en role
+    useEffect(() => {
+        if (user) {
+            if (user.role === 'GENERATOR') {
+                router.replace('/dashboard');
+            } else if (user.role === 'RECYCLER') {
+                router.replace('/dashboard/search');
+            }
+        }
+    }, [user]);
+
+    // Nuevo: Manejo de loading/user para evitar render del form si ya autenticado
+    if (authLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.ecoGreen} />
+            </View>
+        );
+    }
+
+    if (user) {
+        // No renderiza nada; useEffect redirigirá inmediatamente
+        return null;
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -101,12 +102,6 @@ export default function Login() {
                             </View>
                         </View>
 
-                        {error ? (
-                            <View style={styles.errorBox}>
-                                <Text style={styles.errorText}>{error}</Text>
-                            </View>
-                        ) : null}
-
                         <Pressable
                             style={[styles.submit, disabled && styles.submitDisabled]}
                             disabled={disabled}
@@ -118,7 +113,7 @@ export default function Login() {
                         </Pressable>
 
                         <View style={styles.rowBetween}>
-                            <Link href='/register' style={styles.link}>
+                            <Link href='/auth/register' style={styles.link}>
                                 Crear cuenta
                             </Link>
                             <Pressable accessibilityRole='button'>
@@ -128,6 +123,27 @@ export default function Login() {
                     </View>
                 </View>
             </View>
+
+            {/* Nuevo: Modal para error (coherente con register) */}
+            <Modal
+                visible={showErrorModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowErrorModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Error</Text>
+                        <Text style={styles.modalMessage}>{errorMessage}</Text>
+                        <Pressable
+                            style={styles.modalButton}
+                            onPress={() => setShowErrorModal(false)}
+                        >
+                            <Text style={styles.modalButtonText}>OK</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -166,14 +182,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     showBtnText: { color: Colors.ecoGreen, fontWeight: '600' },
-    errorBox: {
-        backgroundColor: '#FFE8E8',
-        borderColor: '#FFBABA',
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: Spacing.sm,
-    },
-    errorText: { color: '#C00' },
     submit: {
         marginTop: Spacing.sm,
         backgroundColor: Colors.ecoGreen,
@@ -186,13 +194,58 @@ const styles = StyleSheet.create({
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.md },
     link: { color: Colors.cyan, fontWeight: '600' },
     linkMuted: { color: Colors.gray },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // Estilos para modal (copiados de register para coherencia)
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: Spacing.lg,
+        width: '80%',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#C00',  // Rojo para error
+        marginBottom: Spacing.sm,
+    },
+    modalMessage: {
+        fontSize: FontSize.medium,
+        color: Colors.gray,
+        textAlign: 'center',
+        marginBottom: Spacing.lg,
+    },
+    modalButton: {
+        backgroundColor: Colors.ecoGreen,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: 8,
+    },
+    modalButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: FontSize.medium,
+    },
 });
 
 function isEmailValid(email: string): boolean {
     const e = (email || '').trim();
-    if (e.length === 0) {
-        return false;
-    }
+    if (e.length === 0) return false;
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(e);
 }

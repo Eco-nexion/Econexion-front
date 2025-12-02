@@ -1,9 +1,10 @@
 import { Colors, FontSize, Spacing } from '@constants';
 import { isEmailValid, MAX_PHOTO_SIZE_MB, type RegisterForm, type RegisterFormErrors, type Role } from '@type/forms';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from "@/src/contexts/AuthContext";
 
 const roles: { label: string; value: Role }[] = [
     { label: 'Comprador', value: 'comprador' },
@@ -11,6 +12,8 @@ const roles: { label: string; value: Role }[] = [
 ];
 
 export default function Register() {
+    const router = useRouter();
+    const { signUp } = useAuth();
     const [form, setForm] = useState<RegisterForm>({
         companyName: '',
         nit: '',
@@ -22,15 +25,12 @@ export default function Register() {
         confirmPassword: '',
         role: 'comprador',
     });
-
     const [errors, setErrors] = useState<RegisterFormErrors>({});
-    const [submittedData, setSubmittedData] = useState<RegisterForm | null>(null);
-    // state for UI only if needed later
+    const [showSuccessModal, setShowSuccessModal] = useState(false); // Nuevo: Estado para modal
 
     const setField = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) =>
         setForm((prev) => {
             const next = { ...prev, [key]: value };
-            // Recalcular errores en cada cambio para habilitar/deshabilitar el botón inmediatamente
             setErrors(collectErrors(next));
             return next;
         });
@@ -71,7 +71,6 @@ export default function Register() {
     };
 
     const onPickImage = () => {
-        // Placeholder: aquí puedes integrar expo-image-picker cuando lo agregues a dependencies
         const demoUrl = 'https://via.placeholder.com/80';
         setField('photoUri', demoUrl);
         setErrors((prev) => ({ ...prev, photoUri: undefined }));
@@ -89,19 +88,36 @@ export default function Register() {
         return !requiredFilled || Object.keys(errors).length > 0;
     };
 
-    const onSubmit = () => {
+    const onSubmit = async () => {
         if (!validate()) {
             return;
         }
-        // Mostrar datos en pantalla para la demo
-        setSubmittedData(form);
+
+        const backendRole = form.role === 'comprador' ? 'RECYCLER' : 'GENERATOR';
+        const result = await signUp({
+            companyName: form.companyName,
+            nit: form.nit,
+            userName: form.userName,
+            position: form.position,
+            photoUri: form.photoUri,
+            email: form.email,
+            password: form.password,
+            role: backendRole,
+        });
+
+        console.log('SignUp result:', result);
+
+        if (!result.success) {
+            setErrors({ ...errors, general: result.error || 'Error desconocido' });
+        } else {
+            setShowSuccessModal(true); // Nuevo: Muestra modal en lugar de Alert
+        }
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps='handled'>
                 <Text style={styles.header}>Registro</Text>
-
                 <Field label='Nombre de la empresa' error={errors.companyName}>
                     <TextInput
                         style={styles.input}
@@ -110,7 +126,6 @@ export default function Register() {
                         placeholder='Eco-nexión S.A.S.'
                     />
                 </Field>
-
                 <Field label='NIT (opcional)'>
                     <TextInput
                         style={styles.input}
@@ -119,7 +134,6 @@ export default function Register() {
                         placeholder='123456789-0'
                     />
                 </Field>
-
                 <Field label='Nombre del usuario' error={errors.userName}>
                     <TextInput
                         style={styles.input}
@@ -128,7 +142,6 @@ export default function Register() {
                         placeholder='Nombre y apellido'
                     />
                 </Field>
-
                 <Field label='Cargo en la empresa' error={errors.position}>
                     <TextInput
                         style={styles.input}
@@ -137,7 +150,6 @@ export default function Register() {
                         placeholder='Ej. Compras'
                     />
                 </Field>
-
                 <Field label='Foto (opcional)' error={errors.photoUri}>
                     <View style={styles.row}>
                         <Pressable style={styles.buttonOutline} onPress={onPickImage}>
@@ -146,7 +158,6 @@ export default function Register() {
                         {form.photoUri ? <Image source={{ uri: form.photoUri }} style={styles.thumb} /> : null}
                     </View>
                 </Field>
-
                 <Field label='Correo' error={errors.email}>
                     <TextInput
                         style={styles.input}
@@ -157,7 +168,6 @@ export default function Register() {
                         autoCapitalize='none'
                     />
                 </Field>
-
                 <Field label='Contraseña' error={errors.password}>
                     <TextInput
                         style={styles.input}
@@ -167,7 +177,6 @@ export default function Register() {
                         secureTextEntry
                     />
                 </Field>
-
                 <Field label='Verificar contraseña' error={errors.confirmPassword}>
                     <TextInput
                         style={styles.input}
@@ -177,7 +186,6 @@ export default function Register() {
                         secureTextEntry
                     />
                 </Field>
-
                 <Field label='Rol'>
                     <View style={styles.row}>
                         {roles.map((r) => (
@@ -193,7 +201,7 @@ export default function Register() {
                         ))}
                     </View>
                 </Field>
-
+                {errors.general ? <Text style={styles.error}>{errors.general}</Text> : null}
                 <Pressable
                     style={[styles.submit, isSubmitDisabled() && styles.submitDisabled]}
                     onPress={onSubmit}
@@ -202,24 +210,12 @@ export default function Register() {
                 >
                     <Text style={styles.submitText}>Confirmar</Text>
                 </Pressable>
-
                 <View style={styles.loginRow}>
                     <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
-                    <Link href={{ pathname: '/login' }} style={styles.loginLink}>
+                    <Link href={{ pathname: '/auth/login' }} style={styles.loginLink}>
                         Inicia sesión
                     </Link>
                 </View>
-
-                {submittedData ? (
-                    <View style={styles.noteBox}>
-                        <Text style={styles.noteTitle}>Datos enviados</Text>
-                        <Text style={styles.noteText}>{JSON.stringify(submittedData, null, 2)}</Text>
-                        <Text style={[styles.noteText, { marginTop: Spacing.sm }]}>
-                            Aquí continúa el flujo: redirigir a #34 (Comprador) o #36 (Vendedor) según el rol.
-                        </Text>
-                    </View>
-                ) : null}
-
                 <View style={styles.noteBox}>
                     <Text style={styles.noteTitle}>Notas</Text>
                     <Text style={styles.noteText}>
@@ -228,6 +224,30 @@ export default function Register() {
                     </Text>
                 </View>
             </ScrollView>
+
+            {/* Nuevo: Modal custom para success */}
+            <Modal
+                visible={showSuccessModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowSuccessModal(false)} // Cierra en backdrop Android
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>¡Éxito!</Text>
+                        <Text style={styles.modalMessage}>Usuario registrado correctamente. Ahora inicia sesión.</Text>
+                        <Pressable
+                            style={styles.modalButton}
+                            onPress={() => {
+                                setShowSuccessModal(false);
+                                router.replace('/auth/login');
+                            }}
+                        >
+                            <Text style={styles.modalButtonText}>OK</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -307,4 +327,46 @@ const styles = StyleSheet.create({
     },
     noteTitle: { fontWeight: '700', marginBottom: Spacing.xs, color: Colors.gray },
     noteText: { color: Colors.gray },
+    // Nuevos estilos para modal
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Backdrop semi-transparente
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: Spacing.lg,
+        width: '80%',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.ecoGreen,
+        marginBottom: Spacing.sm,
+    },
+    modalMessage: {
+        fontSize: FontSize.medium,
+        color: Colors.gray,
+        textAlign: 'center',
+        marginBottom: Spacing.lg,
+    },
+    modalButton: {
+        backgroundColor: Colors.ecoGreen,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: 8,
+    },
+    modalButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: FontSize.medium,
+    },
 });

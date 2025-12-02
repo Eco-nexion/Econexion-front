@@ -1,8 +1,9 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '@utils/storage';
+import {STORAGE_KEYS} from "@constants";
 
-// Base URL del backend
-const API_BASE_URL = 'http://localhost:8080/api';
+// Base URL del backend (actualizado a puerto 35000)
+const API_BASE_URL = 'http://localhost:35000';
 
 // Crear instancia de axios
 const apiClient = axios.create({
@@ -17,18 +18,17 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     async (config) => {
         try {
-            const token = await AsyncStorage.getItem('auth_token');
+            const token = await storage.getItem(STORAGE_KEYS.token);
+            console.log('Interceptor token:', token ? 'Present' : 'Missing');  // Debug
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
         } catch (error) {
-            console.error('Error getting token:', error);
+            console.error('Interceptor storage error:', error);
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 // Interceptor para manejar respuestas y errores
@@ -44,7 +44,7 @@ apiClient.interceptors.response.use(
             originalRequest._retry = true;
 
             // Limpiar token y redirigir al login
-            await AsyncStorage.removeItem('auth_token');
+            await storage.removeItem('auth_token');
             // Aquí podrías usar un evento o context para redirigir al login
 
             return Promise.reject(error);
