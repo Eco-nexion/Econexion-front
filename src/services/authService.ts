@@ -32,6 +32,18 @@ interface GoogleRegisterResponse {
 }
 
 export const authService = {
+    /**
+     * Obtener datos del usuario desde el backend
+     * Endpoint: GET /lab/users/exists/{email}
+     * Se usa después de login/registro exitoso para obtener la sesión completa
+     */
+    getUserByEmail: async (email: string): Promise<GoogleRegisterResponse> => {
+        console.log('📧 Obteniendo datos del usuario:', email);
+        const response = await apiClient.get<GoogleRegisterResponse>(`/lab/users/exists/${encodeURIComponent(email)}`);
+        console.log('✅ Datos del usuario obtenidos:', response.data);
+        return response.data;
+    },
+
     login: async (email: string, password: string): Promise<LoginResponse> => {
         const response = await apiClient.post<LoginResponse>('/api/auth/login', {
             email,

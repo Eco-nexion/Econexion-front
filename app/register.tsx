@@ -1,8 +1,8 @@
 import { useAuth } from '@/src/contexts/AuthContext';
 import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RegisterForm, RegisterFormErrors, Role } from '@type/forms';
-import { Link } from 'expo-router';
+import { storage } from '@utils';
+import { Link, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,7 +29,8 @@ const decodeIdToken = (token: string) => {
 };
 
 export default function Register() {
-    const { login } = useAuth();
+    const router = useRouter();
+    const { refreshAuth } = useAuth();
     const [loading, setLoading] = useState(false);
     const [tokenError, setTokenError] = useState<string | null>(null);
 
@@ -60,7 +61,7 @@ export default function Register() {
     useEffect(() => {
         const loadGoogleData = async () => {
             try {
-                const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+                const idToken = await storage.getItem(STORAGE_KEYS.token);
                 if (!idToken) {
                     setTokenError('No se encontró token de Google');
                     return;
@@ -106,9 +107,9 @@ export default function Register() {
     const onSubmit = async () => {
         setLoading(true);
         try {
-            const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+            const idToken = await storage.getItem(STORAGE_KEYS.token);
 
-            // 1. Registrar usuario
+            // 1. Registrar usuario en el backend
             const registerResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/register/google`, {
                 method: 'POST',
                 headers: {
@@ -132,29 +133,39 @@ export default function Register() {
 
             console.log('✅ Registro completado');
 
-            // 2. Hacer login para obtener JWT
-            const loginResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accessToken: idToken }),
-            });
+            // 2. Obtener datos completos del usuario desde /lab/users/exists/{email}
+            const userDataResponse = await fetch(
+                `${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(form.email)}`,
+                {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
 
-            if (!loginResponse.ok) {
-                throw new Error('Error al hacer login');
+            if (!userDataResponse.ok) {
+                throw new Error('Error al obtener datos del usuario');
             }
 
-            const loginData = await loginResponse.json();
+            const userData = await userDataResponse.json();
+            console.log('✅ Datos del usuario obtenidos');
 
-            // 3. Login con JWT del backend
-            await login(loginData.jwt, {
-                id: loginData.id,
-                email: loginData.email,
-                username: loginData.username,
-                enterpriseName: loginData.enterpriseName,
-                rol: loginData.rol,
-            });
-
+            // 3. Guardar TODO en storage
+            await storage.setItem(STORAGE_KEYS.token, idToken || '');
+            await storage.setItem(STORAGE_KEYS.user_id, userData.id);
+            await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
+            await storage.setItem(STORAGE_KEYS.user_username, userData.username);
+            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit || '');
+            await storage.setItem(STORAGE_KEYS.user_email, userData.email);
+            await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
+            
+            console.log('✅ Datos guardados, refrescando auth...');
+            
+            // 4. Refrescar auth y navegar
+            await refreshAuth();
+            console.log('✅ Auth refrescado, navegando');
+            
             Alert.alert('¡Éxito!', 'Bienvenido a Econexion! ♻️');
+            router.replace('/(tabs)/home');
         } catch (error: unknown) {
             console.error('Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';

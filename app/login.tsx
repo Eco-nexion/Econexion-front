@@ -1,33 +1,19 @@
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Link } from 'expo-router';
+import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
+import { storage } from '@utils';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const Colors = {
-    lightGray: '#F5F6F7',
-    ecoGreen: '#0BB24D',
-    gray: '#6B7280',
-    cyan: '#06B6D4',
-};
-
-const Spacing = {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-};
-
-const FontSize = {
-    medium: 16,
-};
-
 export default function Login() {
-    const { login } = useAuth();
+    const router = useRouter();
+    const { refreshAuth } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
     const disabled = !isEmailValid(email) || password.trim().length === 0;
 
@@ -37,20 +23,57 @@ export default function Login() {
             setError('Revisa tus datos e inténtalo de nuevo.');
             return;
         }
-        const mockResponse = {
-            user: {
-                id: 'mock-user-id-123',
-                enterpriseName: 'Econexion S.A.S.',
-                username: 'Juan Pérez',
-                nit: '900123456-1',
-                email: 'juan.perez@econexion.com',
-                rol: 'VENDEDOR',
-            },
-            token: 'mock-jwt-token-econexion-abc123xyz',
-        };
 
-        // Usar el contexto de Auth para login (guarda y redirige automáticamente)
-        await login(mockResponse.token, mockResponse.user);
+        setLoading(true);
+        try {
+            // 1. Login en el backend
+            const loginRes = await fetch(`${API_CONFIG.BASE_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            if (!loginRes.ok) {
+                throw new Error('Credenciales incorrectas');
+            }
+
+            const loginData = await loginRes.json();
+            console.log('✅ Login exitoso');
+
+            // 2. Obtener datos completos del usuario
+            const userRes = await fetch(
+                `${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(email)}`
+            );
+
+            if (!userRes.ok) {
+                throw new Error('Error al obtener datos del usuario');
+            }
+
+            const userData = await userRes.json();
+            console.log('✅ Datos del usuario obtenidos');
+
+            // 3. Guardar TODO en storage
+            await storage.setItem(STORAGE_KEYS.token, loginData.jwt);
+            await storage.setItem(STORAGE_KEYS.user_id, userData.id);
+            await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
+            await storage.setItem(STORAGE_KEYS.user_username, userData.username);
+            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit || '');
+            await storage.setItem(STORAGE_KEYS.user_email, userData.email);
+            await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
+            
+            console.log('✅ Datos guardados, refrescando auth...');
+            
+            // 4. Refrescar auth y navegar
+            await refreshAuth();
+            console.log('✅ Auth refrescado, navegando');
+            router.replace('/(tabs)/home');
+        } catch (err: unknown) {
+            console.error('❌ Error:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -81,7 +104,6 @@ export default function Login() {
                                 autoComplete='email'
                             />
                         </View>
-
                         <View>
                             <Text style={styles.label}>Contraseña</Text>
                             <View style={styles.passwordRow}>
@@ -98,23 +120,24 @@ export default function Login() {
                                 </Pressable>
                             </View>
                         </View>
-
                         {error ? (
                             <View style={styles.errorBox}>
                                 <Text style={styles.errorText}>{error}</Text>
                             </View>
                         ) : null}
-
                         <Pressable
-                            style={[styles.submit, disabled && styles.submitDisabled]}
-                            disabled={disabled}
+                            style={[styles.submit, (disabled || loading) && styles.submitDisabled]}
+                            disabled={disabled || loading}
                             onPress={onSubmit}
                             accessibilityRole='button'
                             accessibilityLabel='Confirmar inicio de sesión'
                         >
-                            <Text style={styles.submitText}>Entrar</Text>
-                        </Pressable>
-
+                            {loading ? (
+                                <ActivityIndicator color='#fff' />
+                            ) : (
+                                <Text style={styles.submitText}>Entrar</Text>
+                            )}
+                        </Pressable>{' '}
                         <View style={styles.rowBetween}>
                             <Link href='/register' style={styles.link}>
                                 Crear cuenta

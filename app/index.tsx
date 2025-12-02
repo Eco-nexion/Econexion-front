@@ -1,3 +1,4 @@
+import { useAuth } from '@/src/contexts/AuthContext';
 import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -20,6 +21,7 @@ interface GoogleAuthParams {
 
 export default function Home() {
     const router = useRouter();
+    const { refreshAuth } = useAuth();
     const [authError, setAuthError] = useState<string | null>(null);
     const [isExchanging, setIsExchanging] = useState(false);
 
@@ -44,70 +46,82 @@ export default function Home() {
     });
 
     useEffect(() => {
-        const handleAuthResponse = async () => {
-            if (!response) {
-                return;
+        if (!response) return;
+        if (response.type !== 'success') {
+            // Manejar errores inmediatamente
+            setIsExchanging(false);
+            if (response.type === 'error') {
+                setAuthError('Error en Google OAuth');
             }
+            return;
+        }
 
-            if (response.type === 'success') {
-                setIsExchanging(false);
-                setAuthError(null);
+        // Usuario completó OAuth exitosamente
+        const auth = response.authentication;
+        const idToken = auth?.idToken ?? (response.params as GoogleAuthParams)?.id_token;
 
-                const auth = response.authentication;
-                const idToken = auth?.idToken ?? (response.params as GoogleAuthParams)?.id_token;
+        if (!idToken) {
+            setAuthError('No se recibió token de Google');
+            setIsExchanging(false);
+            return;
+        }
 
-                if (!idToken) {
-                    setAuthError('No se recibió id_token. Revisa la configuración de OAuth.');
-                    return;
+        // Guardar y autenticar
+        console.log('🔑 Token recibido');
+        
+        storage.setItem(STORAGE_KEYS.token, idToken)
+            .then(() => fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: idToken }),
+            }))
+            .then(loginRes => {
+                console.log('📡 Status:', loginRes.status);
+                
+                if (loginRes.status !== 200) {
+                    console.log('➡️ Nuevo usuario');
+                    setIsExchanging(false);
+                    router.push('/register');
+                    return null;
                 }
-
-                console.log('🔑 ID TOKEN COMPLETO:', idToken);
-                console.log('📏 Longitud del token:', idToken.length);
-                console.log('🔍 Primeros 50 chars:', idToken.substring(0, 50));
-                console.log('🔍 Últimos 50 chars:', idToken.substring(idToken.length - 50));
-
-                await storage.setItem(STORAGE_KEYS.token, idToken);
-
-                console.log('📤 Enviando al backend:', JSON.stringify({ accessToken: idToken }));
-
-                await fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ accessToken: idToken }),
-                })
-                    .then(async (response) => {
-                        console.log('📡 Status del backend:', response.status);
-                        const responseText = await response.text();
-                        console.log('📄 Respuesta completa del backend:', responseText);
-
-                        if (response.status !== 200) {
-                            console.log('❌ Login falló, redirigiendo a /register');
-                            router.push('/register');
-                        } else {
-                            console.log('✅ Login exitoso, redirigiendo a /(tabs)/home');
-                            router.push('/(tabs)/home');
-                        }
-                        return response;
-                    })
-                    .catch((error) => {
-                        console.error('Error en autenticación con backend:', error);
-                        setAuthError('Error al conectar con el servidor');
-                    });
-            } else if (response.type === 'error') {
+                
+                return loginRes.json();
+            })
+            .then(loginData => {
+                if (!loginData) return null;
+                
+                console.log('✅ Usuario existe');
+                return fetch(`${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(loginData.email)}`);
+            })
+            .then(userRes => {
+                if (!userRes || !userRes.ok) return null;
+                return userRes.json();
+            })
+            .then(userData => {
+                if (!userData) return;
+                
+                // Guardar TODO
+                return Promise.all([
+                    storage.setItem(STORAGE_KEYS.user_id, userData.id),
+                    storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName),
+                    storage.setItem(STORAGE_KEYS.user_username, userData.username),
+                    storage.setItem(STORAGE_KEYS.user_nit, userData.nit || ''),
+                    storage.setItem(STORAGE_KEYS.user_email, userData.email),
+                    storage.setItem(STORAGE_KEYS.user_rol, userData.rol),
+                ]).then(() => {
+                    console.log('✅ Guardado, refrescando auth...');
+                    return refreshAuth();
+                }).then(() => {
+                    console.log('✅ Auth refrescado, navegando');
+                    setIsExchanging(false);
+                    router.replace('/(tabs)/home');
+                });
+            })
+            .catch(error => {
+                console.error('❌ Error:', error);
+                setAuthError('Error al autenticar');
                 setIsExchanging(false);
-                console.error('OAuth error:', response.error);
-                setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
-            } else if (response.type === 'cancel') {
-                setIsExchanging(false);
-                setAuthError('Autenticación cancelada');
-            } else if (response.type === 'dismiss') {
-                setIsExchanging(false);
-            }
-        };
-
-        handleAuthResponse();
+            });
     }, [response, router]);
 
     return (
@@ -127,14 +141,23 @@ export default function Home() {
                     <Pressable
                         style={[styles.googleButton, isExchanging || !request ? { opacity: 0.6 } : null]}
                         onPress={() => {
+                            console.log('🖱️ Click en botón Google');
+                            console.log('📊 Estado actual - isExchanging:', isExchanging, 'request:', !!request);
+                            
                             setAuthError(null);
                             setIsExchanging(true);
-                            console.log('Iniciando OAuth...');
-                            promptAsync({ showInRecents: true }).catch((error) => {
-                                console.error('Error al abrir OAuth:', error);
-                                setIsExchanging(false);
-                                setAuthError('No se pudo iniciar el proceso de autenticación');
-                            });
+                            
+                            console.log('🚀 Llamando promptAsync...');
+                            
+                            promptAsync({ showInRecents: true })
+                                .then(() => {
+                                    console.log('✅ promptAsync completado');
+                                })
+                                .catch((error) => {
+                                    console.error('❌ Error en promptAsync:', error);
+                                    setIsExchanging(false);
+                                    setAuthError('No se pudo iniciar el proceso de autenticación');
+                                });
                         }}
                         disabled={isExchanging || !request}
                         accessibilityRole='button'

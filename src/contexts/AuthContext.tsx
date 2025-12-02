@@ -1,4 +1,3 @@
-import type { UserData } from '@/src/types';
 import { STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
 import { useRouter, useSegments } from 'expo-router';
@@ -7,8 +6,8 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from '
 export interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (token: string, userData: UserData) => Promise<void>;
     logout: () => Promise<void>;
+    refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,54 +18,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const segments = useSegments();
 
-    // Verificar auth al inicio
+    // Verificar auth al inicio y cuando se solicite
+    const refreshAuth = async () => {
+        try {
+            const token = await storage.getItem(STORAGE_KEYS.token);
+            setIsAuthenticated(!!token);
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            setIsAuthenticated(false);
+        }
+    };
+
+    // Verificar auth al montar
     useEffect(() => {
         const checkAuth = async () => {
-            try {
-                const token = await storage.getItem(STORAGE_KEYS.token);
-                setIsAuthenticated(!!token);
-            } catch (error) {
-                console.error('Error checking auth:', error);
-                setIsAuthenticated(false);
-            } finally {
-                setIsLoading(false);
-            }
+            await refreshAuth();
+            setIsLoading(false);
         };
-
         checkAuth();
     }, []);
 
-    // Proteger rutas según estado de auth
+    // Proteger rutas privadas SOLAMENTE
     useEffect(() => {
-        if (isLoading) {
-            return;
-        }
+        if (isLoading) return;
 
         const currentSegment = segments[0] as string;
         const inAuthGroup = currentSegment === '(tabs)' || currentSegment === 'dashboard';
 
+        // Solo bloquear si NO está autenticado e intenta acceder a ruta privada
         if (!isAuthenticated && inAuthGroup) {
-            // Usuario no autenticado → redirigir a inicio
+            console.log('❌ No autenticado, bloqueando acceso a', currentSegment);
             router.replace('/');
-        } else if (isAuthenticated && (!currentSegment || currentSegment === 'index')) {
-            // Usuario autenticado en raíz o index → redirigir a tabs
-            router.replace('/(tabs)/home');
         }
-    }, [isAuthenticated, segments, isLoading, router]);
-
-    const login = async (token: string, userData: UserData) => {
-        await storage.setItem(STORAGE_KEYS.token, token);
-        await storage.setItem(STORAGE_KEYS.user_id, userData.id);
-        await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
-        await storage.setItem(STORAGE_KEYS.user_username, userData.username);
-        if (userData.nit) {
-            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit);
-        }
-        await storage.setItem(STORAGE_KEYS.user_email, userData.email);
-        await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
-        setIsAuthenticated(true);
-        router.replace('/(tabs)/home');
-    };
+    }, [isAuthenticated, segments, isLoading]);
 
     const logout = async () => {
         await storage.removeItem(STORAGE_KEYS.token);
@@ -81,7 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>{children}</AuthContext.Provider>
+        <AuthContext.Provider value={{ isAuthenticated, isLoading, logout, refreshAuth }}>
+            {children}
+        </AuthContext.Provider>
     );
 }
 

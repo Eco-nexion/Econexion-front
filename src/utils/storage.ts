@@ -9,10 +9,18 @@ export const storage = {
      * Guarda un valor
      */
     setItem: async (key: string, value: string): Promise<void> => {
-        if (Platform.OS === 'web') {
-            localStorage.setItem(key, value);
-        } else {
-            await SecureStore.setItemAsync(key, value);
+        console.log(`💾 storage.setItem - Platform: ${Platform.OS}, key: ${key}`);
+        try {
+            if (Platform.OS === 'web') {
+                localStorage.setItem(key, value);
+                console.log(`✅ localStorage guardado: ${key}`);
+            } else {
+                await SecureStore.setItemAsync(key, value);
+                console.log(`✅ SecureStore guardado: ${key}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error guardando ${key}:`, error);
+            throw error;
         }
     },
 
