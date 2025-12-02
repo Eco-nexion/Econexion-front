@@ -1,6 +1,6 @@
 // TypeScript type definitions
 
-export { MAX_PHOTO_SIZE_MB, isEmailValid } from './forms';
+export { isEmailValid, MAX_PHOTO_SIZE_MB } from './forms';
 export type { RegisterForm, RegisterFormErrors, Role } from './forms';
 
 /**

@@ -1,7 +1,7 @@
 import type { UserData } from '@/src/types';
 import { STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface DashboardStats {
     publications: number;
@@ -27,7 +27,7 @@ export function useUserDashboard(): UseDashboardReturn {
     });
     const [isLoading, setIsLoading] = useState(true);
 
-    const loadUserData = async () => {
+    const loadUserData = useCallback(async () => {
         try {
             const id = (await storage.getItem(STORAGE_KEYS.user_id)) || '';
             const enterpriseName = (await storage.getItem(STORAGE_KEYS.user_enterprise_name)) || '';
@@ -40,9 +40,10 @@ export function useUserDashboard(): UseDashboardReturn {
         } catch (error) {
             console.error('Error loading user data:', error);
         }
-    };
+    }, []);
 
-    const loadStats = async () => {
+    // biome-ignore lint/suspicious/useAwait: <>
+    const loadStats = useCallback(async () => {
         // TODO: Cuando el backend tenga endpoint /dashboard/stats, reemplazar con:
         // const response = await apiClient.get('/dashboard/stats');
         // setStats(response.data);
@@ -55,17 +56,17 @@ export function useUserDashboard(): UseDashboardReturn {
             offersSent: 0,
             activeChats: 0,
         });
-    };
+    }, []);
 
-    const refreshStats = async () => {
+    const refreshStats = useCallback(async () => {
         setIsLoading(true);
         await Promise.all([loadUserData(), loadStats()]);
         setIsLoading(false);
-    };
+    }, [loadUserData, loadStats]);
 
     useEffect(() => {
         refreshStats();
-    }, []);
+    }, [refreshStats]);
 
     return { userData, stats, isLoading, refreshStats };
 }

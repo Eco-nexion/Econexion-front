@@ -1,4 +1,4 @@
-export type Role = 'COMPRADOR' | 'VENDEDOR' | 'GENERADOR';
+export type Role = 'BUYER' | 'SELLER' | 'ADMIN';
 
 export interface RegisterForm {
     enterpriseName: string;

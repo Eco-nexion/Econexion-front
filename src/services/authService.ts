@@ -51,7 +51,7 @@ export const authService = {
         console.log('🏢 Enterprise:', data.enterpriseName);
         console.log('👤 Username:', data.username);
         console.log('🎭 Role:', data.role);
-        console.log('🔑 Token (primeros 30 chars):', accessToken.substring(0, 30) + '...');
+        console.log('🔑 Token (primeros 30 chars):', `${accessToken.substring(0, 30)}...`);
         console.log('🔑 Longitud del token:', accessToken.length);
 
         const response = await apiClient.post<GoogleRegisterResponse>(
