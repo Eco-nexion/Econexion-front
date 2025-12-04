@@ -1,26 +1,28 @@
-export type Role = 'comprador' | 'vendedor';
+export type Role = 'BUYER' | 'SELLER' | 'ADMIN';
 
 export interface RegisterForm {
-    companyName: string;
+    enterpriseName: string;
+    username: string;
     nit?: string;
-    userName: string;
-    position: string;
-    photoUri?: string; // local uri
     email: string;
-    password: string;
-    confirmPassword: string;
     role: Role;
 }
 
 export interface RegisterFormErrors {
-    companyName?: string;
-    userName?: string;
-    position?: string;
+    enterpriseName?: string;
+    username?: string;
+    nit?: string;
     email?: string;
-    password?: string;
-    confirmPassword?: string;
     role?: string;
-    photoUri?: string;
+}
+
+// Formulario Google con datos del backend
+export interface GoogleRegisterRequest {
+    enterpriseName: string;
+    username: string;
+    nit: string;
+    email: string;
+    role: string;
 }
 
 export const isEmailValid = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

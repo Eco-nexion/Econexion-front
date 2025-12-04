@@ -1,198 +1,234 @@
-import { Colors, FontSize, Spacing } from '@constants';
-import { isEmailValid, MAX_PHOTO_SIZE_MB, type RegisterForm, type RegisterFormErrors, type Role } from '@type/forms';
-import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { RegisterForm, RegisterFormErrors, Role } from '@type/forms';
+import { Link } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from "@/src/contexts/AuthContext";
 
 const roles: { label: string; value: Role }[] = [
-    { label: 'Comprador', value: 'comprador' },
-    { label: 'Vendedor', value: 'vendedor' },
+    { label: 'Comprador', value: 'BUYER' },
+    { label: 'Vendedor', value: 'SELLER' },
+    { label: 'Administrador', value: 'ADMIN' },
 ];
 
+const decodeIdToken = (token: string) => {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            throw new Error('Token inválido');
+        }
+        const payload = parts[1];
+        const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(decoded);
+    } catch (err) {
+        console.error('Error decodificando ID Token:', err);
+        return null;
+    }
+};
+
 export default function Register() {
-    const router = useRouter();
-    const { signUp } = useAuth();
+    const { login } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [tokenError, setTokenError] = useState<string | null>(null);
+
     const [form, setForm] = useState<RegisterForm>({
-        companyName: '',
+        enterpriseName: '',
         nit: '',
-        userName: '',
-        position: '',
-        photoUri: undefined,
+        username: '',
         email: '',
-        password: '',
-        confirmPassword: '',
-        role: 'comprador',
+        role: 'BUYER',
     });
+
     const [errors, setErrors] = useState<RegisterFormErrors>({});
-    const [showSuccessModal, setShowSuccessModal] = useState(false); // Nuevo: Estado para modal
 
-    const setField = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) =>
-        setForm((prev) => {
-            const next = { ...prev, [key]: value };
-            setErrors(collectErrors(next));
-            return next;
-        });
-
-    const collectErrors = (f: RegisterForm): RegisterFormErrors => {
+    const collectErrors = useCallback((f: RegisterForm): RegisterFormErrors => {
         const e: RegisterFormErrors = {};
-        const requiredKeys = ['companyName', 'userName', 'position', 'email'] as const;
-        for (const k of requiredKeys) {
-            const v = f[k];
-            if (typeof v === 'string') {
-                if (!v.trim()) {
-                    e[k] = 'Requerido';
-                }
-            }
+        if (!f.enterpriseName.trim()) {
+            e.enterpriseName = 'Requerido';
         }
-        if (!f.role) {
-            e.role = 'Requerido';
+        if (!f.username.trim()) {
+            e.username = 'Requerido';
         }
-        if (!f.password) {
-            e.password = 'Requerido';
-        }
-        if (!f.confirmPassword) {
-            e.confirmPassword = 'Requerido';
-        }
-        if (f.email && !isEmailValid(f.email)) {
-            e.email = 'Correo inválido';
-        }
-        if (f.password && f.confirmPassword && f.password !== f.confirmPassword) {
-            e.confirmPassword = 'Las contraseñas no coinciden';
+        if (!f.email.trim()) {
+            e.email = 'Requerido';
         }
         return e;
-    };
+    }, []);
 
-    const validate = (): boolean => {
-        const e = collectErrors(form);
-        setErrors(e);
-        return Object.keys(e).length === 0;
-    };
+    useEffect(() => {
+        const loadGoogleData = async () => {
+            try {
+                const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
+                if (!idToken) {
+                    setTokenError('No se encontró token de Google');
+                    return;
+                }
 
-    const onPickImage = () => {
-        const demoUrl = 'https://via.placeholder.com/80';
-        setField('photoUri', demoUrl);
-        setErrors((prev) => ({ ...prev, photoUri: undefined }));
+                const userData = decodeIdToken(idToken);
+                if (!userData) {
+                    setTokenError('Token inválido');
+                    return;
+                }
+
+                const newForm = {
+                    enterpriseName: '',
+                    nit: '',
+                    username: userData.name || '',
+                    email: userData.email || '',
+                    role: 'BUYER' as Role,
+                };
+                setForm(newForm);
+                setErrors(collectErrors(newForm));
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                setTokenError('Error al cargar tus datos');
+            }
+        };
+        loadGoogleData();
+    }, [collectErrors]);
+
+    const setField = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) => {
+        const next = { ...form, [key]: value };
+        setForm(next);
+        setErrors(collectErrors(next));
     };
 
     const isSubmitDisabled = () => {
-        const requiredFilled =
-            form.companyName.trim().length > 0 &&
-            form.userName.trim().length > 0 &&
-            form.position.trim().length > 0 &&
-            form.email.trim().length > 0 &&
-            form.password.trim().length > 0 &&
-            form.confirmPassword.trim().length > 0 &&
-            !!form.role;
-        return !requiredFilled || Object.keys(errors).length > 0;
+        return (
+            !(form.enterpriseName.trim() && form.username.trim() && form.email.trim()) ||
+            Object.keys(errors).length > 0 ||
+            loading
+        );
     };
 
     const onSubmit = async () => {
-        if (!validate()) {
-            return;
-        }
+        setLoading(true);
+        try {
+            const idToken = await AsyncStorage.getItem(STORAGE_KEYS.token);
 
-        const backendRole = form.role === 'comprador' ? 'RECYCLER' : 'GENERATOR';
-        const result = await signUp({
-            companyName: form.companyName,
-            nit: form.nit,
-            userName: form.userName,
-            position: form.position,
-            photoUri: form.photoUri,
-            email: form.email,
-            password: form.password,
-            role: backendRole,
-        });
+            // 1. Registrar usuario
+            const registerResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/register/google`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // biome-ignore lint/style/useNamingConvention: <backend expects>
+                    Authorization: `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    enterpriseName: form.enterpriseName,
+                    username: form.username,
+                    nit: form.nit,
+                    email: form.email,
+                    role: form.role,
+                }),
+            });
 
-        console.log('SignUp result:', result);
+            if (!registerResponse.ok) {
+                const errorText = await registerResponse.text();
+                throw new Error(`Error al registrar: ${errorText}`);
+            }
 
-        if (!result.success) {
-            setErrors({ ...errors, general: result.error || 'Error desconocido' });
-        } else {
-            setShowSuccessModal(true); // Nuevo: Muestra modal en lugar de Alert
+            console.log('✅ Registro completado');
+
+            // 2. Hacer login para obtener JWT
+            const loginResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: idToken }),
+            });
+
+            if (!loginResponse.ok) {
+                throw new Error('Error al hacer login');
+            }
+
+            const loginData = await loginResponse.json();
+
+            // 3. Login con JWT del backend
+            await login(loginData.jwt, {
+                id: loginData.id,
+                email: loginData.email,
+                username: loginData.username,
+                enterpriseName: loginData.enterpriseName,
+                rol: loginData.rol,
+            });
+
+            Alert.alert('¡Éxito!', 'Bienvenido a Econexion! ♻️');
+        } catch (error: unknown) {
+            console.error('Error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setLoading(false);
         }
     };
+
+    if (tokenError) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.container}>
+                    <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>⚠️ {tokenError}</Text>
+                        <Link href='/' style={styles.errorLink}>
+                            Volver al inicio
+                        </Link>
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps='handled'>
-                <Text style={styles.header}>Registro</Text>
-                <Field label='Nombre de la empresa' error={errors.companyName}>
+                <Text style={styles.header}>Completa tu registro</Text>
+
+                <Field label='Nombre de la empresa *' error={errors.enterpriseName}>
                     <TextInput
                         style={styles.input}
-                        value={form.companyName}
-                        onChangeText={(t) => setField('companyName', t)}
+                        value={form.enterpriseName}
+                        onChangeText={(t) => setField('enterpriseName', t)}
                         placeholder='Eco-nexión S.A.S.'
+                        editable={!loading}
                     />
                 </Field>
+
                 <Field label='NIT (opcional)'>
                     <TextInput
                         style={styles.input}
                         value={form.nit}
                         onChangeText={(t) => setField('nit', t)}
                         placeholder='123456789-0'
+                        editable={!loading}
                     />
                 </Field>
-                <Field label='Nombre del usuario' error={errors.userName}>
+
+                <Field label='Nombre del usuario *' error={errors.username}>
                     <TextInput
                         style={styles.input}
-                        value={form.userName}
-                        onChangeText={(t) => setField('userName', t)}
-                        placeholder='Nombre y apellido'
+                        value={form.username}
+                        onChangeText={(t) => setField('username', t)}
+                        editable={!loading}
                     />
                 </Field>
-                <Field label='Cargo en la empresa' error={errors.position}>
+
+                <Field label='Correo *' error={errors.email}>
                     <TextInput
-                        style={styles.input}
-                        value={form.position}
-                        onChangeText={(t) => setField('position', t)}
-                        placeholder='Ej. Compras'
-                    />
-                </Field>
-                <Field label='Foto (opcional)' error={errors.photoUri}>
-                    <View style={styles.row}>
-                        <Pressable style={styles.buttonOutline} onPress={onPickImage}>
-                            <Text style={styles.buttonOutlineText}>Elegir foto</Text>
-                        </Pressable>
-                        {form.photoUri ? <Image source={{ uri: form.photoUri }} style={styles.thumb} /> : null}
-                    </View>
-                </Field>
-                <Field label='Correo' error={errors.email}>
-                    <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: '#eee' }]}
                         value={form.email}
-                        onChangeText={(t) => setField('email', t)}
-                        placeholder='correo@dominio.com'
-                        keyboardType='email-address'
-                        autoCapitalize='none'
+                        editable={false}
                     />
                 </Field>
-                <Field label='Contraseña' error={errors.password}>
-                    <TextInput
-                        style={styles.input}
-                        value={form.password}
-                        onChangeText={(t) => setField('password', t)}
-                        placeholder='Ingresa tu clave'
-                        secureTextEntry
-                    />
-                </Field>
-                <Field label='Verificar contraseña' error={errors.confirmPassword}>
-                    <TextInput
-                        style={styles.input}
-                        value={form.confirmPassword}
-                        onChangeText={(t) => setField('confirmPassword', t)}
-                        placeholder='Repite tu clave'
-                        secureTextEntry
-                    />
-                </Field>
-                <Field label='Rol'>
+
+                <Field label='Rol *'>
                     <View style={styles.row}>
                         {roles.map((r) => (
                             <Pressable
                                 key={r.value}
                                 onPress={() => setField('role', r.value)}
                                 style={[styles.chip, form.role === r.value && styles.chipSelected]}
+                                disabled={loading}
                             >
                                 <Text style={[styles.chipText, form.role === r.value && styles.chipTextSelected]}>
                                     {r.label}
@@ -201,53 +237,19 @@ export default function Register() {
                         ))}
                     </View>
                 </Field>
-                {errors.general ? <Text style={styles.error}>{errors.general}</Text> : null}
+
                 <Pressable
                     style={[styles.submit, isSubmitDisabled() && styles.submitDisabled]}
                     onPress={onSubmit}
                     disabled={isSubmitDisabled()}
-                    accessibilityRole='button'
                 >
-                    <Text style={styles.submitText}>Confirmar</Text>
+                    {loading ? (
+                        <ActivityIndicator color='#fff' />
+                    ) : (
+                        <Text style={styles.submitText}>Completar Registro</Text>
+                    )}
                 </Pressable>
-                <View style={styles.loginRow}>
-                    <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
-                    <Link href={{ pathname: '/auth/login' }} style={styles.loginLink}>
-                        Inicia sesión
-                    </Link>
-                </View>
-                <View style={styles.noteBox}>
-                    <Text style={styles.noteTitle}>Notas</Text>
-                    <Text style={styles.noteText}>
-                        - Los campos obligatorios no pueden estar vacíos.{'\n'}- El correo debe tener un formato válido.
-                        {'\n'}- La foto no puede ser muy pesada (límite: {MAX_PHOTO_SIZE_MB}MB).
-                    </Text>
-                </View>
             </ScrollView>
-
-            {/* Nuevo: Modal custom para success */}
-            <Modal
-                visible={showSuccessModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowSuccessModal(false)} // Cierra en backdrop Android
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>¡Éxito!</Text>
-                        <Text style={styles.modalMessage}>Usuario registrado correctamente. Ahora inicia sesión.</Text>
-                        <Pressable
-                            style={styles.modalButton}
-                            onPress={() => {
-                                setShowSuccessModal(false);
-                                router.replace('/auth/login');
-                            }}
-                        >
-                            <Text style={styles.modalButtonText}>OK</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -277,17 +279,7 @@ const styles = StyleSheet.create({
         fontSize: FontSize.medium,
     },
     error: { color: '#D00', marginTop: Spacing.xs },
-    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    buttonOutline: {
-        borderWidth: 1,
-        borderColor: Colors.ecoGreen,
-        borderRadius: 10,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        backgroundColor: '#fff',
-    },
-    buttonOutlineText: { color: Colors.ecoGreen, fontWeight: '600' },
-    thumb: { width: 40, height: 40, borderRadius: 8 },
+    row: { flexDirection: 'row', gap: Spacing.md },
     chip: {
         borderWidth: 1,
         borderColor: Colors.gray,
@@ -308,65 +300,24 @@ const styles = StyleSheet.create({
     },
     submitDisabled: { backgroundColor: Colors.gray },
     submitText: { color: '#fff', fontWeight: '700', fontSize: FontSize.medium },
-    loginRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: Spacing.xs,
-        marginTop: Spacing.md,
-    },
-    loginText: { color: Colors.gray },
-    loginLink: { color: Colors.cyan, fontWeight: '600' },
-    noteBox: {
-        marginTop: Spacing.lg,
-        backgroundColor: '#FFFFFFAA',
-        borderWidth: 1,
-        borderColor: Colors.gray,
+    errorBox: {
+        backgroundColor: '#FFEBEE',
+        borderWidth: 2,
+        borderColor: '#D32F2F',
         borderRadius: 12,
         padding: Spacing.md,
     },
-    noteTitle: { fontWeight: '700', marginBottom: Spacing.xs, color: Colors.gray },
-    noteText: { color: Colors.gray },
-    // Nuevos estilos para modal
-    modalOverlay: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Backdrop semi-transparente
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: Spacing.lg,
-        width: '80%',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: Colors.ecoGreen,
-        marginBottom: Spacing.sm,
-    },
-    modalMessage: {
-        fontSize: FontSize.medium,
-        color: Colors.gray,
-        textAlign: 'center',
-        marginBottom: Spacing.lg,
-    },
-    modalButton: {
-        backgroundColor: Colors.ecoGreen,
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.sm,
-        borderRadius: 8,
-    },
-    modalButtonText: {
-        color: '#fff',
+    errorText: {
+        color: '#D32F2F',
         fontWeight: '600',
         fontSize: FontSize.medium,
+        textAlign: 'center',
+        marginBottom: Spacing.sm,
+    },
+    errorLink: {
+        color: '#1976D2',
+        fontWeight: '700',
+        textAlign: 'center',
+        textDecorationLine: 'underline',
     },
 });

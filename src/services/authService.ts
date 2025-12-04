@@ -1,128 +1,91 @@
-import apiClient from '@/src/services/axiosConfig';
-import { storage } from '@utils/storage';
-import { STORAGE_KEYS } from '@constants/storage';
-import { parseJwt } from '@utils/jwtUtils'; // Nuevo import
-
-// Types basados en backend DTOs
-interface RegisterRequest {
-    username: string;
-    password: string;
-    email: string;
-    enterpriseName: string;
-    nit: string;
-    rol: 'GENERATOR' | 'RECYCLER';
-}
-
-interface LoginRequest {
-    email: string;
-    password: string;
-}
-
-interface UserDTO {
-    id: string;
-    name: string;
-    email: string;
-    role: 'GENERATOR' | 'RECYCLER';
-}
+import type { RegisterForm } from '@/src/types/forms';
+import apiClient from './axiosConfig';
 
 interface LoginResponse {
     token: string;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        userType: string;
+    };
 }
 
-// Servicio de autenticación
-export const AuthService = {
-    /**
-     * Registra un nuevo usuario (devuelve solo user, no token)
-     */
-    async register(data: {
-        companyName: string;
-        nit?: string;
-        userName: string;
-        position: string;
-        photoUri?: string;
+interface RegisterResponse {
+    token: string;
+    user: {
+        id: string;
+        name: string;
         email: string;
-        password: string;
-        role: 'GENERATOR' | 'RECYCLER';
-    }): Promise<UserDTO> {
-        // Mapear exactamente al DTO backend RegisterRequest
-        const request: RegisterRequest = {
-            username: data.userName,
-            password: data.password,
-            email: data.email,
-            enterpriseName: data.companyName,
-            nit: data.nit || '',
-            rol: data.role,
-        };
+        userType: string;
+    };
+}
 
-        const response = await apiClient.post<UserDTO>('api/auth/register', request);
+interface GoogleRegisterResponse {
+    id: string;
+    enterpriseName: string;
+    username: string;
+    nit: string;
+    email: string;
+    rol: string;
+    password: string | null;
+}
 
-        // NO almacenar nada (no hay token/login automático)
-        // Almacenar extras si aplican (opcional, pero como antes)
-        if (data.nit) await storage.setItem('user_nit', data.nit);
-        if (data.position) await storage.setItem('user_position', data.position);
-
-        // Mapear backend User a UserDTO (username -> name)
-        return {
-            id: response.data.id,
-            name: response.data.username,
-            email: response.data.email,
-            role: response.data.rol as 'GENERATOR' | 'RECYCLER',
-        };
+export const authService = {
+    login: async (email: string, password: string): Promise<LoginResponse> => {
+        const response = await apiClient.post<LoginResponse>('/api/auth/login', {
+            email,
+            password,
+        });
+        return response.data;
     },
 
-    /**
-     * Inicia sesión (devuelve token, parsea user de JWT)
-     */
-    async login(email: string, password: string): Promise<{ token: string; user: UserDTO }> {
-        const request: LoginRequest = { email, password };
-        const response = await apiClient.post<LoginResponse>('api/auth/login', request);
-
-        const token = response.data.token;
-        const parsedUser = parseJwt(token);
-        if (!parsedUser) {
-            throw new Error('Invalid JWT payload');
-        }
-
-        // Almacenar en storage
-        await storage.setItem(STORAGE_KEYS.token, token);
-        console.log('Token stored:', token.substring(0, 20) + '...');
-        await storage.setItem(STORAGE_KEYS.user_name, parsedUser.name);
-        await storage.setItem(STORAGE_KEYS.user_email, parsedUser.email);
-        await storage.setItem(STORAGE_KEYS.user_id, parsedUser.id);
-        await storage.setItem(STORAGE_KEYS.user_type, parsedUser.role);
-
-        return { token, user: parsedUser };
+    register: async (data: RegisterForm): Promise<RegisterResponse> => {
+        const response = await apiClient.post<RegisterResponse>('/api/auth/register', data);
+        return response.data;
     },
 
-    /**
-     * Cierra sesión
-     */
-    async logout(): Promise<void> {
-        await storage.removeItem(STORAGE_KEYS.token);
-        await storage.removeItem(STORAGE_KEYS.user_name);
-        await storage.removeItem(STORAGE_KEYS.user_email);
-        await storage.removeItem(STORAGE_KEYS.user_id);
-        await storage.removeItem(STORAGE_KEYS.user_type);
-        // Limpia extras si aplican
+    registerWithGoogle: async (data: RegisterForm, accessToken: string): Promise<GoogleRegisterResponse> => {
+        console.log('🔐 Registrando con Google OAuth...');
+        console.log('📧 Email:', data.email);
+        console.log('🏢 Enterprise:', data.enterpriseName);
+        console.log('👤 Username:', data.username);
+        console.log('🎭 Role:', data.role);
+        console.log('🔑 Token (primeros 30 chars):', `${accessToken.substring(0, 30)}...`);
+        console.log('🔑 Longitud del token:', accessToken.length);
+
+        const response = await apiClient.post<GoogleRegisterResponse>(
+            '/api/auth/register/google',
+            {
+                enterpriseName: data.enterpriseName,
+                username: data.username,
+                nit: data.nit || '',
+                email: data.email,
+                role: data.role,
+            },
+            {
+                headers: {
+                    // biome-ignore lint/style/useNamingConvention: Backend expects "Bearer <token>" format
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            }
+        );
+
+        console.log('✅ Registro exitoso:', response.data);
+        return response.data;
     },
 
-    /**
-     * Obtiene el usuario actual desde storage (o valida con backend si implementas /users/me)
-     */
-    async getCurrentUser(): Promise<UserDTO | null> {
-        const token = await storage.getItem(STORAGE_KEYS.token);
-        if (!token) return null;
+    // TODO: Backend no implementado - Endpoint no disponible actualmente
+    // Cuando el backend implemente GET /users/profile, descomentar
+    // getProfile: async () => {
+    // 	const response = await apiClient.get('/users/profile');
+    // 	return response.data;
+    // },
 
-        // Si backend tiene /api/users/me, descomenta:
-        // const response = await apiClient.get<UserDTO>('/users/me');
-        // return response.data;
-
-        // Por ahora, reconstruye de storage
-        return {
-            id: (await storage.getItem(STORAGE_KEYS.user_id)) || '',
-            name: (await storage.getItem(STORAGE_KEYS.user_name)) || '',
-            email: (await storage.getItem(STORAGE_KEYS.user_email)) || '',
-            role: (await storage.getItem(STORAGE_KEYS.user_type)) as 'GENERATOR' | 'RECYCLER' || 'GENERATOR',
-        };
-    },
+    // TODO: Backend no implementado - Endpoint no disponible actualmente
+    // Cuando el backend implemente POST /auth/logout, descomentar
+    // Por ahora el logout se hace solo limpiando el token en AuthContext
+    // logout: async () => {
+    // 	await apiClient.post('/auth/logout');
+    // },
 };

@@ -1,113 +1,94 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { useRouter } from 'expo-router';
-import { AuthService } from '@/src/services/authService'; // Ruta relativa
+import type { UserData } from '@/src/types';
+import { STORAGE_KEYS } from '@constants';
+import { storage } from '@utils';
+import { useRouter, useSegments } from 'expo-router';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 
-// Types basados en backend
-interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'GENERATOR' | 'RECYCLER';
-}
-
-interface AuthContextType {
-    user: User | null;
+export interface AuthContextType {
     isAuthenticated: boolean;
-    loading: boolean;
-    signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-    signUp: (data: {
-        companyName: string;
-        nit?: string;
-        userName: string;
-        position: string;
-        photoUri?: string;
-        email: string;
-        password: string;
-        role: 'GENERATOR' | 'RECYCLER';
-    }) => Promise<{ success: boolean; error?: string }>;
-    signOut: () => Promise<void>;
+    isLoading: boolean;
+    login: (token: string, userData: UserData) => Promise<void>;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const segments = useSegments();
 
+    // Verificar auth al inicio
     useEffect(() => {
-        const loadUser = async () => {
+        const checkAuth = async () => {
             try {
-                const storedUser = await AuthService.getCurrentUser();
-                setUser(storedUser);
+                const token = await storage.getItem(STORAGE_KEYS.token);
+                setIsAuthenticated(!!token);
             } catch (error) {
-                console.error('Error loading user:', error);
-                setUser(null);
+                console.error('Error checking auth:', error);
+                setIsAuthenticated(false);
             } finally {
-                setLoading(false);
+                setIsLoading(false);
             }
         };
 
-        loadUser();
+        checkAuth();
     }, []);
 
-    const signIn = async (email: string, password: string) => {
-        try {
-            const response = await AuthService.login(email, password);
-            setUser(response.user);
-            return { success: true };
-        } catch (error: any) {
-            return { success: false, error: error.response?.data?.message || 'Error en el inicio de sesión' };
+    // Proteger rutas según estado de auth
+    useEffect(() => {
+        if (isLoading) {
+            return;
         }
-    };
 
-    const signUp = async (data: {
-        companyName: string;
-        nit?: string;
-        userName: string;
-        position: string;
-        photoUri?: string;
-        email: string;
-        password: string;
-        role: 'GENERATOR' | 'RECYCLER';
-    }) => {
-        try {
-            await AuthService.register(data); // No setUser (no login)
-            return { success: true };
-        } catch (error: any) {
-            return { success: false, error: error.response?.data?.message || 'Error en el registro' };
-        }
-    };
+        const currentSegment = segments[0] as string;
+        const inAuthGroup = currentSegment === '(tabs)' || currentSegment === 'dashboard';
 
-    const signOut = async () => {
-        try {
-            await AuthService.logout();
-            setUser(null);
+        if (!isAuthenticated && inAuthGroup) {
+            // Usuario no autenticado → redirigir a inicio
             router.replace('/');
-        } catch (error) {
-            console.error('Error signing out:', error);
+        } else if (isAuthenticated && (!currentSegment || currentSegment === 'index')) {
+            // Usuario autenticado en raíz o index → redirigir a tabs
+            router.replace('/(tabs)/home');
         }
+    }, [isAuthenticated, segments, isLoading, router]);
+
+    const login = async (token: string, userData: UserData) => {
+        await storage.setItem(STORAGE_KEYS.token, token);
+        await storage.setItem(STORAGE_KEYS.user_id, userData.id);
+        await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
+        await storage.setItem(STORAGE_KEYS.user_username, userData.username);
+        if (userData.nit) {
+            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit);
+        }
+        await storage.setItem(STORAGE_KEYS.user_email, userData.email);
+        await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
+        setIsAuthenticated(true);
+        router.replace('/(tabs)/home');
     };
 
-    const value = useMemo(
-        () => ({
-            user,
-            isAuthenticated: !!user,
-            loading,
-            signIn,
-            signUp,
-            signOut,
-        }),
-        [user, loading]
-    );
+    const logout = async () => {
+        await storage.removeItem(STORAGE_KEYS.token);
+        await storage.removeItem(STORAGE_KEYS.user_id);
+        await storage.removeItem(STORAGE_KEYS.user_enterprise_name);
+        await storage.removeItem(STORAGE_KEYS.user_username);
+        await storage.removeItem(STORAGE_KEYS.user_nit);
+        await storage.removeItem(STORAGE_KEYS.user_email);
+        await storage.removeItem(STORAGE_KEYS.user_rol);
+        setIsAuthenticated(false);
+        router.replace('/');
+    };
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>{children}</AuthContext.Provider>
+    );
 }
 
 export function useAuth() {
     const context = useContext(AuthContext);
-    if (undefined === context) {
-        throw new Error('useAuth must be used within an AuthProvider');
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider');
     }
     return context;
 }

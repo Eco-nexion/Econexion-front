@@ -1,19 +1,18 @@
-import { Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
+import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
-import { AuthService } from '@/src/services/authService';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 
 WebBrowser.maybeCompleteAuthSession();
 
 interface GoogleAuthParams {
     access_token?: string;
+    id_token?: string;
     token_type?: string;
     expires_in?: string;
     scope?: string;
@@ -33,86 +32,83 @@ export default function Home() {
         iosClientId: iosClientId,
         androidClientId: androidClientId,
         clientId: clientId,
-        responseType: 'token',
+        responseType: 'id_token token',
         scopes: ['openid', 'email', 'profile'],
         redirectUri,
         // biome-ignore lint/style/useNamingConvention: <is PKCE>
         usePKCE: false,
         selectAccount: true,
+        extraParams: {
+            nonce: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        },
     });
 
     useEffect(() => {
-        if (!response) {
-            return;
-        }
-
-        if (response.type === 'success') {
-            setIsExchanging(false);
-            setAuthError(null);
-
-            const auth = response.authentication;
-            const accessToken = auth?.accessToken ?? (response.params as GoogleAuthParams)?.access_token;
-
-            if (!accessToken) {
-                setAuthError('No se recibió access_token. Revisa la configuración de OAuth.');
+        const handleAuthResponse = async () => {
+            if (!response) {
                 return;
             }
 
-            console.log(accessToken);
+            if (response.type === 'success') {
+                setIsExchanging(false);
+                setAuthError(null);
 
-            // Placeholder para call real a backend /auth/google (agrega en backend)
-            // try {
-            //     const backendResponse = await apiClient.post('/auth/google', { access_token: accessToken });
-            //     // Almacena como en AuthService
-            //     await storage.setItem(STORAGE_KEYS.token, backendResponse.data.token);
-            //     // ... resto
-            //     // Redirigir basado en role
-            //     if (backendResponse.data.user.role === 'GENERATOR') {
-            //         router.replace('/(dashboard)');
-            //     } else {
-            //         router.replace('/(dashboard)/search');
-            //     }
-            // } catch (err) {
-            //     setAuthError('Error en auth con backend');
-            // }
+                const auth = response.authentication;
+                const idToken = auth?.idToken ?? (response.params as GoogleAuthParams)?.id_token;
 
-            // MOCK ANTERIOR: Mantengo por ahora hasta implementar /auth/google en backend
-
-            // mocking the exchange process
-            const mockResponse = {
-                user: {
-                    id: 'mock-user-id-123',
-                    email: 'Google@example.com',
-                    name: 'Google Mock',
-                    role: 'RECYCLER', // Ajustado a enum backend
-                },
-                token: 'mock-jwt-token-google-abc123xyz',
-            };
-
-            // Simular delay de red
-            setTimeout(async () => {
-                console.log('Mock response:', mockResponse);
-                await storage.setItem(STORAGE_KEYS.token, mockResponse.token);
-                await storage.setItem(STORAGE_KEYS.user_name, mockResponse.user.name);
-                await storage.setItem(STORAGE_KEYS.user_email, mockResponse.user.email);
-                await storage.setItem(STORAGE_KEYS.user_type, mockResponse.user.role);
-                if (mockResponse.user.role === 'GENERATOR') {
-                    router.replace('/dashboard');
-                } else {
-                    router.replace('/dashboard/search');
+                if (!idToken) {
+                    setAuthError('No se recibió id_token. Revisa la configuración de OAuth.');
+                    return;
                 }
-            }, 1000);
-        } else if (response.type === 'error') {
-            setIsExchanging(false);
-            console.error('OAuth error:', response.error);
-            setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
-        } else if (response.type === 'cancel') {
-            setIsExchanging(false);
-            setAuthError('Autenticación cancelada');
-        } else if (response.type === 'dismiss') {
-            setIsExchanging(false);
-        }
-    }, [response]);
+
+                console.log('🔑 ID TOKEN COMPLETO:', idToken);
+                console.log('📏 Longitud del token:', idToken.length);
+                console.log('🔍 Primeros 50 chars:', idToken.substring(0, 50));
+                console.log('🔍 Últimos 50 chars:', idToken.substring(idToken.length - 50));
+
+                await storage.setItem(STORAGE_KEYS.token, idToken);
+
+                console.log('📤 Enviando al backend:', JSON.stringify({ accessToken: idToken }));
+
+                await fetch(`${API_CONFIG.BASE_URL}/api/auth/login/google`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accessToken: idToken }),
+                })
+                    .then(async (response) => {
+                        console.log('📡 Status del backend:', response.status);
+                        const responseText = await response.text();
+                        console.log('📄 Respuesta completa del backend:', responseText);
+
+                        if (response.status !== 200) {
+                            console.log('❌ Login falló, redirigiendo a /register');
+                            router.push('/register');
+                        } else {
+                            console.log('✅ Login exitoso, redirigiendo a /(tabs)/home');
+                            router.push('/(tabs)/home');
+                        }
+                        return response;
+                    })
+                    .catch((error) => {
+                        console.error('Error en autenticación con backend:', error);
+                        setAuthError('Error al conectar con el servidor');
+                    });
+            } else if (response.type === 'error') {
+                setIsExchanging(false);
+                console.error('OAuth error:', response.error);
+                setAuthError(`Error en la autorización: ${response.error?.message || 'Desconocido'}`);
+            } else if (response.type === 'cancel') {
+                setIsExchanging(false);
+                setAuthError('Autenticación cancelada');
+            } else if (response.type === 'dismiss') {
+                setIsExchanging(false);
+            }
+        };
+
+        handleAuthResponse();
+    }, [response, router]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -153,7 +149,7 @@ export default function Home() {
                         <Text style={styles.googleText}>{isExchanging ? 'Conectando' : 'Continuar con Google'}</Text>
                     </Pressable>
 
-                    <Link href='/auth/login' asChild>
+                    <Link href='/login' asChild>
                         <Pressable style={styles.econexionButton}>
                             <Text style={styles.econexionButtonText}>♻️ Iniciar con Econexion</Text>
                         </Pressable>
@@ -161,7 +157,7 @@ export default function Home() {
 
                     {authError ? <Text style={{ color: '#C00' }}>{authError}</Text> : null}
 
-                    <Link href='/auth/register' asChild>
+                    <Link href='/register' asChild>
                         <Pressable style={styles.ctaButton}>
                             <Text style={styles.ctaButtonText}>Ir al registro</Text>
                         </Pressable>
@@ -175,7 +171,7 @@ export default function Home() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: Colors.lightGray,
+        backgroundColor: '#dddddd',
     },
     container: {
         flex: 1,

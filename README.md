@@ -145,21 +145,39 @@ cd Econexion-front
 git checkout develop
 ```
 
-### 3️⃣ Instalar Dependencias
+
+
+### 4️⃣ Instalar Dependencias
 
 ```bash
 pnpm install
 ```
 
-### 4️⃣ Configurar Variables de Entorno (Opcional)
+### 3️⃣ Configurar Variables de Entorno
 
-Crea un archivo `.env.local` en la raíz del proyecto:
+Copia el archivo `.env.example` a `.env` y configura las variables:
+
+```bash
+cp .env.example .env
+```
+
+Edita `.env` con tus valores:
 
 ```env
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=587933647930-5655phuhtfgo9ska2i9euumigl3eh5in.apps.googleusercontent.com
-EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=587933647930-b0u33ajp7v0n07nouluofcgfm1cah7b2.apps.googleusercontent.com
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=587933647930-gtqf8tlukjfllhfqfctc5jvot80oe73b.apps.googleusercontent.com
+# API Configuration
+EXPO_PUBLIC_API_BASE_URL=http://app-back.gdg7amgzcxgzbygk.eastus2.azurecontainer.io:35000
+# Para desarrollo local, usa:
+# EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
+
+EXPO_PUBLIC_API_TIMEOUT=10000
+
+# Google OAuth (opcional si usas autenticación con Google)
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
 ```
+
+> **⚠️ Importante**: Nunca commitees el archivo `.env` con credenciales reales. Ya está incluido en `.gitignore`.
 
 ### 5️⃣ Iniciar el Servidor de Desarrollo
 

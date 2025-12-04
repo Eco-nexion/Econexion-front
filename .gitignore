@@ -49,3 +49,5 @@ scripts
 .vscode
 
 .env
+# Backend repository (separate git repo)
+backend/
