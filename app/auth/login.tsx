@@ -1,26 +1,9 @@
+import { Colors, FontSize, Spacing } from '@constants';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const Colors = {
-    lightGray: '#F5F6F7',
-    ecoGreen: '#0BB24D',
-    gray: '#6B7280',
-    cyan: '#06B6D4',
-};
-
-const Spacing = {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-};
-
-const FontSize = {
-    medium: 16,
-};
 
 export default function Login() {
     const { login } = useAuth();
