@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 interface OfferCardProps {
     offer: Offer;
     currentUserId: string;
+    currentUserEmail?: string; // Agregar email para comparación más confiable
     onPress: () => void;
     onAccept?: () => void;
     onReject?: () => void;
@@ -18,6 +19,7 @@ interface OfferCardProps {
 export default function OfferCard({
     offer,
     currentUserId,
+    currentUserEmail,
     onPress,
     onAccept,
     onReject,
@@ -26,8 +28,41 @@ export default function OfferCard({
     onViewPublication,
     onOpenChat,
 }: OfferCardProps) {
-    const isOwner = offer.publication.owner === currentUserId;
-    const isOfferer = offer.offerer.id === currentUserId;
+    // Verificar que la publicación exista
+    if (!offer.publication) {
+        console.warn('⚠️ [OfferCard] Oferta sin publicación:', offer.id);
+        return (
+            <View style={styles.card}>
+                <Text style={styles.errorText}>Publicación no disponible</Text>
+            </View>
+        );
+    }
+
+    // Verificar que offerer exista (el backend puede no devolverlo)
+    if (!offer.offerer) {
+        console.warn('⚠️ [OfferCard] Oferta sin información del ofertante:', offer.id);
+        return (
+            <View style={styles.card}>
+                <Text style={styles.errorText}>Información de oferta incompleta</Text>
+            </View>
+        );
+    }
+
+    // Determinar roles usando email (más confiable que ID)
+    const isOwner = currentUserEmail
+        ? offer.publication.ownerEmail === currentUserEmail
+        : offer.publication.owner === currentUserId;
+    const isOfferer = currentUserEmail ? offer.offerer.email === currentUserEmail : offer.offerer.id === currentUserId;
+
+    console.log('🎴 [OfferCard] Roles:', {
+        offerId: offer.id,
+        isOwner,
+        isOfferer,
+        publicationOwnerEmail: offer.publication.ownerEmail,
+        offererEmail: offer.offerer.email,
+        currentUserEmail,
+        status: offer.status,
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -390,5 +425,11 @@ const styles = StyleSheet.create({
         fontSize: FontSize.small,
         fontWeight: '600',
         color: '#fff',
+    },
+    errorText: {
+        fontSize: FontSize.small,
+        color: '#EF4444',
+        textAlign: 'center',
+        padding: Spacing.md,
     },
 });

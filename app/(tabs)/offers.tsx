@@ -1,3 +1,5 @@
+import { AcceptRejectDialog } from '@/src/components';
+import ConfirmDialog from '@/src/components/ConfirmDialog';
 import CreateOfferModal from '@/src/components/CreateOfferModal';
 import EditOfferModal from '@/src/components/EditOfferModal';
 import OfferCard from '@/src/components/OfferCard';
@@ -9,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { storage } from '@utils';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ViewMode = 'received' | 'sent';
@@ -18,6 +20,7 @@ type FilterStatus = OfferStatus | 'ALL';
 export default function OffersTab() {
     const router = useRouter();
     const [currentUserId, setCurrentUserId] = useState<string>('');
+    const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
     const [viewMode, setViewMode] = useState<ViewMode>('received');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
     const [offers, setOffers] = useState<Offer[]>([]);
@@ -34,27 +37,38 @@ export default function OffersTab() {
     const [createModalPublicationTitle] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Obtener userId al montar
+    // Estados para diálogos de confirmación
+    const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+    const [showRejectDialog, setShowRejectDialog] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [pendingOfferAction, setPendingOfferAction] = useState<string | null>(null);
+
+    // Obtener userId y email al montar
     useEffect(() => {
-        const getUserId = async () => {
+        const getUserData = async () => {
             const userId = (await storage.getItem(STORAGE_KEYS.user_id)) || 'mock-user-1';
+            const userEmail = (await storage.getItem(STORAGE_KEYS.user_email)) || '';
             setCurrentUserId(userId);
+            setCurrentUserEmail(userEmail);
         };
-        getUserId();
+        getUserData();
     }, []);
 
     // Cargar ofertas
     const loadOffers = useCallback(async () => {
+        console.group('📋 [Offers] loadOffers');
         try {
+            console.log('🔄 [Offers] Modo:', viewMode);
             setLoading(true);
             const data =
                 viewMode === 'received' ? await offersService.getReceivedOffers() : await offersService.getMyOffers();
+            console.log('✅ [Offers] Ofertas cargadas:', data.length);
             setOffers(data);
         } catch (error) {
-            console.error('Error loading offers:', error);
-            Alert.alert('Error', 'No se pudieron cargar las ofertas');
+            console.error('❌ [Offers] Error al cargar ofertas:', error);
         } finally {
             setLoading(false);
+            console.groupEnd();
         }
     }, [viewMode]);
 
@@ -81,92 +95,138 @@ export default function OffersTab() {
         setRefreshing(false);
     };
 
-    // Aceptar oferta
+    // Aceptar oferta (con optimistic update)
     const handleAcceptOffer = async (offerId: string) => {
+        console.group('✅ [Offers] handleAcceptOffer');
         try {
+            console.log('🔄 [Offers] Aceptando oferta:', offerId);
             setActionLoading(true);
+
+            // Optimistic update
+            setOffers((prev) => prev.map((o) => (o.id === offerId ? { ...o, status: 'ACCEPTED' as OfferStatus } : o)));
+
             await offersService.acceptOffer(offerId);
-            Alert.alert('Éxito', 'Oferta aceptada correctamente');
+
+            console.log('✅ [Offers] Oferta aceptada exitosamente');
             setShowDetailModal(false);
+            setShowAcceptDialog(false);
+
+            // Reload after 300ms to sync with backend
+            setTimeout(() => {
+                loadOffers();
+            }, 300);
+            // biome-ignore lint/suspicious/noExplicitAny: Error handling
+        } catch (_error: any) {
+            console.error('❌ [Offers] Error al aceptar oferta:', _error);
+            // Revertir optimistic update
             await loadOffers();
-        } catch (_error) {
-            Alert.alert('Error', 'No se pudo aceptar la oferta');
         } finally {
             setActionLoading(false);
+            console.groupEnd();
         }
     };
 
-    // Rechazar oferta
-    // biome-ignore lint/suspicious/useAwait: <>
+    // Rechazar oferta (con optimistic update)
     const handleRejectOffer = async (offerId: string) => {
-        Alert.alert('Rechazar oferta', '¿Estás seguro de rechazar esta oferta?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Rechazar',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        setActionLoading(true);
-                        await offersService.rejectOffer(offerId);
-                        Alert.alert('Oferta rechazada');
-                        setShowDetailModal(false);
-                        await loadOffers();
-                    } catch (_error) {
-                        Alert.alert('Error', 'No se pudo rechazar la oferta');
-                    } finally {
-                        setActionLoading(false);
-                    }
-                },
-            },
-        ]);
+        console.group('❌ [Offers] handleRejectOffer');
+        try {
+            console.log('🔄 [Offers] Rechazando oferta:', offerId);
+            setActionLoading(true);
+
+            // Optimistic update
+            setOffers((prev) => prev.map((o) => (o.id === offerId ? { ...o, status: 'REJECTED' as OfferStatus } : o)));
+
+            await offersService.rejectOffer(offerId);
+
+            console.log('✅ [Offers] Oferta rechazada exitosamente');
+            setShowDetailModal(false);
+            setShowRejectDialog(false);
+
+            // Reload after 300ms to sync with backend
+            setTimeout(() => {
+                loadOffers();
+            }, 300);
+            // biome-ignore lint/suspicious/noExplicitAny: Error handling
+        } catch (_error: any) {
+            console.error('❌ [Offers] Error al rechazar oferta:', _error);
+            // Revertir optimistic update
+            await loadOffers();
+        } finally {
+            setActionLoading(false);
+            console.groupEnd();
+        }
     };
 
-    // Eliminar oferta
-    // biome-ignore lint/suspicious/useAwait: <>
+    // Eliminar oferta (con optimistic update)
     const handleDeleteOffer = async (offerId: string) => {
-        Alert.alert('Eliminar oferta', '¿Estás seguro de eliminar esta oferta?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Eliminar',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        setActionLoading(true);
-                        await offersService.deleteOffer(offerId);
-                        Alert.alert('Oferta eliminada');
-                        setShowDetailModal(false);
-                        await loadOffers();
-                    } catch (_error) {
-                        Alert.alert('Error', 'No se pudo eliminar la oferta');
-                    } finally {
-                        setActionLoading(false);
-                    }
-                },
-            },
-        ]);
+        console.group('🗑️ [Offers] handleDeleteOffer');
+        try {
+            console.log('🔄 [Offers] Eliminando oferta:', offerId);
+            setActionLoading(true);
+
+            // Optimistic update - remover de la lista
+            setOffers((prev) => prev.filter((o) => o.id !== offerId));
+
+            await offersService.deleteOffer(offerId);
+
+            console.log('✅ [Offers] Oferta eliminada exitosamente');
+            setShowDetailModal(false);
+            setShowDeleteDialog(false);
+
+            // Reload after 300ms to sync with backend
+            setTimeout(() => {
+                loadOffers();
+            }, 300);
+            // biome-ignore lint/suspicious/noExplicitAny: Error handling
+        } catch (_error: any) {
+            console.error('❌ [Offers] Error al eliminar oferta:', _error);
+            // Revertir optimistic update
+            await loadOffers();
+        } finally {
+            setActionLoading(false);
+            console.groupEnd();
+        }
     };
 
     // Editar oferta
     const handleEditOffer = async (offerId: string, amount: number, message: string) => {
+        console.group('✏️ [Offers] handleEditOffer');
         try {
+            console.log('🔄 [Offers] Editando oferta:', offerId);
             await offersService.updateOffer({ id: offerId, amount, message });
-            Alert.alert('Éxito', 'Oferta actualizada correctamente');
+            console.log('✅ [Offers] Oferta editada exitosamente');
             setShowEditModal(false);
-            await loadOffers();
-        } catch (_error) {
-            Alert.alert('Error', 'No se pudo actualizar la oferta');
+
+            // Reload after 300ms to sync with backend
+            setTimeout(() => {
+                loadOffers();
+            }, 300);
+            // biome-ignore lint/suspicious/noExplicitAny: Error handling
+        } catch (_error: any) {
+            console.error('❌ [Offers] Error al editar oferta:', _error);
+        } finally {
+            console.groupEnd();
         }
     };
 
-    // Crear oferta (placeholder para cuando lo conectes)
+    // Crear oferta
     const handleCreateOffer = async (data: { amount: number; message: string; publicationId: string }) => {
+        console.group('➕ [Offers] handleCreateOffer');
         try {
+            console.log('🔄 [Offers] Creando oferta para publicación:', data.publicationId);
             await offersService.createOffer(data);
-            Alert.alert('Éxito', 'Oferta creada correctamente');
+            console.log('✅ [Offers] Oferta creada exitosamente');
             setShowCreateModal(false);
-            await loadOffers();
-        } catch (_error) {
-            Alert.alert('Error', 'No se pudo crear la oferta');
+
+            // Reload after 300ms to sync with backend
+            setTimeout(() => {
+                loadOffers();
+            }, 300);
+            // biome-ignore lint/suspicious/noExplicitAny: Error handling necesita any
+        } catch (error: any) {
+            console.error('❌ [Offers] Error al cargar ofertas:', error);
+        } finally {
+            console.groupEnd();
         }
     };
 
@@ -175,26 +235,36 @@ export default function OffersTab() {
         <OfferCard
             offer={item}
             currentUserId={currentUserId}
+            currentUserEmail={currentUserEmail}
             onPress={() => {
                 setSelectedOffer(item);
                 setShowDetailModal(true);
             }}
-            onAccept={() => handleAcceptOffer(item.id)}
-            onReject={() => handleRejectOffer(item.id)}
+            onAccept={() => {
+                setPendingOfferAction(item.id);
+                setShowAcceptDialog(true);
+            }}
+            onReject={() => {
+                setPendingOfferAction(item.id);
+                setShowRejectDialog(true);
+            }}
             onEdit={() => {
                 setSelectedOffer(item);
                 setShowEditModal(true);
             }}
-            onDelete={() => handleDeleteOffer(item.id)}
+            onDelete={() => {
+                setPendingOfferAction(item.id);
+                setShowDeleteDialog(true);
+            }}
             onViewPublication={() => {
                 // TODO: Navegar a detalle de publicación
-                Alert.alert('Ver publicación', 'Funcionalidad pendiente');
+                console.log('[Offers] Ver publicación:', item.publication.id);
             }}
             onOpenChat={() => {
                 if (item.conversation) {
                     router.push(`/chat/${item.conversation}` as never);
                 } else {
-                    Alert.alert('Chat', 'No hay conversación activa para esta oferta');
+                    console.log('[Offers] No hay conversación activa para esta oferta');
                 }
             }}
         />
@@ -315,6 +385,66 @@ export default function OffersTab() {
                 publicationTitle={createModalPublicationTitle}
                 onClose={() => setShowCreateModal(false)}
                 onSave={handleCreateOffer}
+            />
+
+            {/* Diálogos de confirmación */}
+            <AcceptRejectDialog
+                visible={showAcceptDialog}
+                title='Aceptar oferta'
+                message='¿Estás seguro de aceptar esta oferta? Se notificará al oferente.'
+                acceptText='Aceptar'
+                rejectText='Rechazar'
+                cancelText='Volver'
+                onAccept={() => {
+                    if (pendingOfferAction) {
+                        handleAcceptOffer(pendingOfferAction);
+                    }
+                }}
+                onReject={() => {
+                    setShowAcceptDialog(false);
+                    setShowRejectDialog(true);
+                }}
+                onCancel={() => {
+                    setShowAcceptDialog(false);
+                    setPendingOfferAction(null);
+                }}
+                loading={actionLoading}
+            />
+
+            <ConfirmDialog
+                visible={showRejectDialog}
+                title='Rechazar oferta'
+                message='¿Estás seguro de rechazar esta oferta? Esta acción notificará al oferente.'
+                confirmText='Rechazar'
+                cancelText='Cancelar'
+                onConfirm={() => {
+                    if (pendingOfferAction) {
+                        handleRejectOffer(pendingOfferAction);
+                    }
+                }}
+                onCancel={() => {
+                    setShowRejectDialog(false);
+                    setPendingOfferAction(null);
+                }}
+                loading={actionLoading}
+            />
+
+            <ConfirmDialog
+                visible={showDeleteDialog}
+                title='Eliminar oferta'
+                message='¿Estás seguro de eliminar esta oferta? Esta acción no se puede deshacer.'
+                confirmText='Eliminar'
+                cancelText='Cancelar'
+                onConfirm={() => {
+                    if (pendingOfferAction) {
+                        handleDeleteOffer(pendingOfferAction);
+                    }
+                }}
+                onCancel={() => {
+                    setShowDeleteDialog(false);
+                    setPendingOfferAction(null);
+                }}
+                loading={actionLoading}
             />
         </SafeAreaView>
     );

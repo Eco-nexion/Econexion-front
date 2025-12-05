@@ -50,6 +50,7 @@ export interface Post {
     location: string;
     description: string;
     owner?: string; // userId del propietario (opcional porque el backend no lo devuelve en publications[])
+    ownerEmail?: string; // Email del propietario (agregado en el frontend para identificación confiable)
     offers: Offer[]; // array de offers
 }
 
@@ -123,7 +124,8 @@ export interface Offer {
     amount: number;
     message: string;
     date: string; // ISO string
-    publication: Post;
+    publication?: Post; // Opcional porque puede venir null/undefined del backend
+    publicationId?: string; // ID de la publicación (cuando publication no viene completo)
     offerer: OffererUser;
     status: OfferStatus;
     conversation: string;
