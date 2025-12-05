@@ -19,23 +19,23 @@ export default function PublicationsTab() {
     const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [postToDelete, setPostToDelete] = useState<Post | null>(null);
-    const [currentUserId, setCurrentUserId] = useState<string>('');
+    const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
 
-    // Obtener userId al montar
+    // Obtener email del usuario actual al montar
     useEffect(() => {
-        const loadUserId = async () => {
-            const userId = (await storage.getItem(STORAGE_KEYS.user_id)) || 'mock-user-id-123';
+        const loadUserEmail = async () => {
+            const email = await storage.getItem(STORAGE_KEYS.user_email);
             const token = await storage.getItem(STORAGE_KEYS.token);
 
             console.log('🔐 [Publications] Storage Debug:', {
-                userId: userId ? `${userId.substring(0, 20)}...` : 'NO USER ID',
+                email: email || 'NO EMAIL',
                 token: token ? `${token.substring(0, 30)}...` : 'NO TOKEN',
                 tokenLength: token?.length || 0,
             });
 
-            setCurrentUserId(userId);
+            setCurrentUserEmail(email || '');
         };
-        loadUserId();
+        loadUserEmail();
     }, []);
 
     const loadPosts = useCallback(async () => {
@@ -46,10 +46,6 @@ export default function PublicationsTab() {
             setPosts(data);
         } catch (error: any) {
             console.error('📱 [Publications] Error cargando posts:', error.message);
-
-            // Mostrar mensaje específico según el error
-            const errorMessage = error.message || 'No se pudieron cargar las publicaciones';
-            Alert.alert('Error', errorMessage);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -57,10 +53,10 @@ export default function PublicationsTab() {
     }, []);
 
     useEffect(() => {
-        if (currentUserId) {
+        if (currentUserEmail) {
             loadPosts();
         }
-    }, [currentUserId, loadPosts]);
+    }, [currentUserEmail, loadPosts]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -81,12 +77,9 @@ export default function PublicationsTab() {
             console.log('📱 [Publications] Post creado exitosamente');
 
             await loadPosts(); // Recargar lista
-            Alert.alert('¡Éxito!', 'Tu publicación ha sido creada correctamente');
+            console.log('✅ [Publications] Tu publicación ha sido creada correctamente');
         } catch (error: any) {
             console.error('📱 [Publications] Error creando post:', error.message);
-
-            const errorMessage = error.message || 'No se pudo crear la publicación';
-            Alert.alert('Error', errorMessage);
 
             // Re-lanzar el error para que el modal lo maneje si es necesario
             throw error;
@@ -95,8 +88,8 @@ export default function PublicationsTab() {
 
     const handlePostPress = (post: Post) => {
         // Si es mi propia publicación, no puedo hacer oferta
-        if (post.owner === currentUserId) {
-            Alert.alert('Información', 'No puedes hacer ofertas en tus propias publicaciones');
+        if (post.ownerEmail === currentUserEmail) {
+            console.log('ℹ️ [Publications] No puedes hacer ofertas en tus propias publicaciones');
             return;
         }
 
@@ -108,7 +101,7 @@ export default function PublicationsTab() {
     const handleCreateOffer = async (data: CreateOfferRequest) => {
         try {
             await offersService.createOffer(data);
-            Alert.alert('¡Éxito!', 'Tu oferta ha sido enviada correctamente');
+            console.log('✅ [Publications] Tu oferta ha sido enviada correctamente');
             setOfferModalVisible(false);
             setSelectedPost(null);
         } catch (_error) {
@@ -157,7 +150,7 @@ export default function PublicationsTab() {
                 }))
             );
 
-            Alert.alert('¡Éxito!', 'Tu publicación ha sido actualizada correctamente');
+            console.log('✅ [Publications] Tu publicación ha sido actualizada correctamente');
             console.log('📱 [Publications] ===== ACTUALIZACIÓN COMPLETADA =====');
         } catch (error: any) {
             console.error('📱 [Publications] ===== ERROR EN ACTUALIZACIÓN =====');
@@ -170,8 +163,6 @@ export default function PublicationsTab() {
 
             const errorMessage = error?.message || 'No se pudo actualizar la publicación';
             console.error('📱 [Publications] Mensaje de error para mostrar:', errorMessage);
-
-            Alert.alert('Error', errorMessage);
             console.log('📱 [Publications] ===== FIN ERROR =====');
 
             throw error;
@@ -192,20 +183,20 @@ export default function PublicationsTab() {
 
         console.log('📱 [Publications] ===== INICIANDO ELIMINACIÓN =====');
         const postId = postToDelete.id;
+        const postTitle = postToDelete.title;
         setConfirmDeleteVisible(false);
         setPostToDelete(null);
 
-        // Optimistic update: eliminar de la lista inmediatamente
-        setPosts((currentPosts) => currentPosts.filter((p) => p.id !== postId));
-
         try {
-            console.log('📱 [Publications] Llamando a postService.deletePost...');
+            console.log('📱 [Publications] Eliminando post:', { id: postId, title: postTitle });
             await postService.deletePost(postId);
-            console.log('📱 [Publications] ✅ Post eliminado exitosamente');
+            console.log('📱 [Publications] ✅ Post eliminado exitosamente del backend');
 
-            // Recargar la lista completa del backend para asegurar sincronización
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            // Recargar la lista completa del backend
+            console.log('📱 [Publications] Recargando lista de publicaciones...');
             await loadPosts();
+            console.log('📱 [Publications] Lista actualizada después de eliminar');
+            console.log('✅ Publicación eliminada correctamente');
 
             console.log('📱 [Publications] ===== ELIMINACIÓN COMPLETADA =====');
         } catch (error: any) {
@@ -230,27 +221,23 @@ export default function PublicationsTab() {
     );
 
     const renderPost = ({ item }: { item: Post }) => {
-        const isMyPost = item.owner === currentUserId;
+        const isMyPost = item.ownerEmail === currentUserEmail;
 
         console.log('📝 [Publications] Renderizando post:', {
             postId: item.id,
             title: item.title,
             owner: item.owner,
-            currentUserId,
+            ownerEmail: item.ownerEmail,
+            currentUserEmail,
             isMyPost,
-            ownerType: typeof item.owner,
-            userIdType: typeof currentUserId,
         });
-
-        // TEMPORAL: Forzar showActions = true para debug
-        const forceShowActions = true;
 
         return (
             <View style={styles.postContainer}>
                 <PostCard
                     post={item}
                     onPress={() => handlePostPress(item)}
-                    showActions={forceShowActions}
+                    showActions={isMyPost}
                     onEdit={() => {
                         console.log('🟢 [Publications] onEdit llamado para:', item.title);
                         handleEditPost(item);

@@ -10,7 +10,8 @@
         "ios": "expo run:ios",
         "web": "expo start --web",
         "lint": "biome lint .",
-        "format": "biome format --write ."
+        "format": "biome format --write .",
+        "seed:publications": "npx ts-node --project scripts/tsconfig.json scripts/seedPublications.ts"
     },
     "dependencies": {
         "@expo/vector-icons": "^15.0.2",
@@ -46,7 +47,9 @@
     },
     "devDependencies": {
         "@biomejs/biome": "2.2.4",
+        "@types/node": "^24.10.1",
         "@types/react": "~19.1.0",
+        "ts-node": "^10.9.2",
         "typescript": "~5.9.2"
     }
 }

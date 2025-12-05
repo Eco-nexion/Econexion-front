@@ -5,66 +5,69 @@ import apiClient from './axiosConfig';
 
 export const postService = {
     /**
-     * Obtener todas las publicaciones del usuario actual
-     * GET /lab/users/get/{email}
+     * Obtener TODAS las publicaciones de TODOS los usuarios (FEED)
+     * GET /lab/users/allUsers -> obtiene todos los usuarios
+     * Luego recopila todas sus publicaciones
      *
-     * El backend no tiene endpoint directo para todas las publicaciones,
-     * solo devuelve las publicaciones dentro del objeto User
+     * Esto crea un feed completo de publicaciones del sistema
      */
     getAllPosts: async (): Promise<Post[]> => {
-        console.group('📋 postService.getAllPosts');
+        console.group('📰 postService.getAllPosts (FEED)');
         try {
-            const userEmail = await storage.getItem(STORAGE_KEYS.user_email);
-            const userId = await storage.getItem(STORAGE_KEYS.user_id);
+            console.log('🔄 [FEED] Obteniendo TODOS los usuarios del sistema...');
 
-            if (!userEmail) {
-                throw new Error('No se encontró el email del usuario en storage');
-            }
+            // Obtener todos los usuarios del sistema
+            const usersResponse = await apiClient.get<UserWithPublications[]>('/lab/users/allUsers');
+            const allUsers = usersResponse.data;
 
-            console.log('🔄 [GET ALL] Obteniendo publicaciones del usuario:', userEmail);
-            console.log('🔄 [GET ALL] Endpoint:', `/lab/users/get/${encodeURIComponent(userEmail)}`);
-
-            const response = await apiClient.get<UserWithPublications>(
-                `/lab/users/get/${encodeURIComponent(userEmail)}`
-            );
-
-            console.log('✅ [GET ALL] Respuesta recibida:', {
-                status: response.status,
-                userId: response.data.id,
-                email: response.data.email,
+            console.log('✅ [FEED] Usuarios obtenidos:', {
+                status: usersResponse.status,
+                totalUsers: allUsers.length,
+                userEmails: allUsers.map((u) => u.email),
             });
 
-            const userData = response.data;
-            const publications = userData.publications || [];
+            // Recopilar todas las publicaciones de todos los usuarios
+            const allPublications: Post[] = [];
 
-            console.log('📄 [GET ALL] Publications del backend:', JSON.stringify(publications, null, 2));
-            console.log(
-                '📊 [GET ALL] Resumen de publicaciones:',
-                publications.map((p) => ({
-                    id: p.id,
-                    title: p.title,
-                    quantity: p.quantity,
-                    price: p.price,
-                }))
-            );
+            for (const user of allUsers) {
+                const userPublications = user.publications || [];
 
-            // Agregar el owner (userId) a cada publicación ya que el backend no lo incluye
-            const publicationsWithOwner = publications.map((post: Post) => ({
-                ...post,
-                owner: userId || userData.id,
-            }));
+                if (userPublications.length > 0) {
+                    console.log(
+                        `📝 [FEED] Usuario "${user.enterpriseName}" (${user.email}) tiene ${userPublications.length} publicaciones`
+                    );
 
-            console.log('✅ [GET ALL] Publicaciones procesadas:', {
-                status: response.status,
-                totalPosts: publicationsWithOwner.length,
-                userId: userData.id,
-                userEmail: userData.email,
+                    // Agregar el owner (userId) y ownerEmail a cada publicación
+                    const publicationsWithOwner = userPublications.map((post: Post) => ({
+                        ...post,
+                        owner: post.owner || user.id, // Usar owner existente o userId
+                        ownerEmail: post.ownerEmail || user.email, // Agregar email del dueño
+                    }));
+
+                    allPublications.push(...publicationsWithOwner);
+                }
+            }
+
+            // Ordenar por fecha más reciente primero (si tienen fecha)
+            // Si no tienen fecha, usar el orden del backend
+            allPublications.sort((a, b) => {
+                // Si tienen fecha, ordenar por fecha descendente
+                if (a.date && b.date) {
+                    return new Date(b.date).getTime() - new Date(a.date).getTime();
+                }
+                return 0; // Mantener orden original si no hay fechas
+            });
+
+            console.log('✅ [FEED] Feed completo generado:', {
+                totalPublications: allPublications.length,
+                fromUsers: allUsers.filter((u) => u.publications && u.publications.length > 0).length,
+                publicationTitles: allPublications.map((p) => `${p.title} (${p.ownerEmail})`),
             });
 
             console.groupEnd();
-            return publicationsWithOwner;
+            return allPublications;
         } catch (error: any) {
-            console.error('❌ [GET ALL] Error:', {
+            console.error('❌ [FEED] Error:', {
                 message: error.message,
                 status: error.response?.status,
                 data: error.response?.data,
@@ -76,6 +79,59 @@ export const postService = {
             }
 
             throw new Error('No se pudieron cargar las publicaciones. Verifica tu conexión.');
+        }
+    },
+
+    /**
+     * Obtener las publicaciones del usuario actual solamente
+     * GET /lab/users/get/{email}
+     */
+    getMyPosts: async (): Promise<Post[]> => {
+        console.group('👤 postService.getMyPosts');
+        try {
+            const userEmail = await storage.getItem(STORAGE_KEYS.user_email);
+            const userId = await storage.getItem(STORAGE_KEYS.user_id);
+
+            if (!userEmail) {
+                throw new Error('No se encontró el email del usuario en storage');
+            }
+
+            console.log('🔄 [MY POSTS] Obteniendo publicaciones del usuario:', userEmail);
+
+            const response = await apiClient.get<UserWithPublications>(
+                `/lab/users/get/${encodeURIComponent(userEmail)}`
+            );
+
+            const userData = response.data;
+            const publications = userData.publications || [];
+
+            // Agregar el owner (userId) y ownerEmail a cada publicación
+            const publicationsWithOwner = publications.map((post: Post) => ({
+                ...post,
+                owner: userId || userData.id,
+                ownerEmail: userEmail, // Email del usuario actual
+            }));
+
+            console.log('✅ [MY POSTS] Publicaciones del usuario:', {
+                totalPosts: publicationsWithOwner.length,
+                userId: userData.id,
+            });
+
+            console.groupEnd();
+            return publicationsWithOwner;
+        } catch (error: any) {
+            console.error('❌ [MY POSTS] Error:', {
+                message: error.message,
+                status: error.response?.status,
+                data: error.response?.data,
+            });
+            console.groupEnd();
+
+            if (error.response?.status === 401) {
+                throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+            }
+
+            throw new Error('No se pudieron cargar tus publicaciones.');
         }
     },
 
@@ -233,98 +289,47 @@ export const postService = {
     },
 
     /**
-     * Actualizar publicación existente
-     * PUT /posts/update
+     * Actualizar publicación
+     * 🚨 WORKAROUND: DELETE + POST (PUT no funciona en backend) 🚨
+     * TODO: Reemplazar con PUT /posts/update cuando backend lo arregle
      *
-     * El backend requiere enviar el objeto User completo con el array de publications actualizado
+     * Estrategia:
+     * 1. Eliminar publicación existente (DELETE /posts/delete)
+     * 2. Crear nueva publicación con datos actualizados (POST /posts/new)
      */
     updatePost: async (data: UpdatePostRequest): Promise<Post> => {
-        console.group('✏️ postService.updatePost');
+        console.group('✏️ postService.updatePost [DELETE+POST WORKAROUND]');
         console.log('🎯 [UPDATE] Datos recibidos:', JSON.stringify(data, null, 2));
+        console.warn('⚠️ [WORKAROUND] Usando DELETE+POST porque PUT no funciona');
 
         try {
-            const userEmail = await storage.getItem(STORAGE_KEYS.user_email);
-            console.log('📧 [UPDATE] Email del storage:', userEmail);
+            // PASO 1: Eliminar publicación existente
+            console.log('🔄 [UPDATE] PASO 1: Eliminando publicación existente...');
+            await postService.deletePost(data.id);
+            console.log('✅ [UPDATE] Publicación eliminada exitosamente');
 
-            if (!userEmail) {
-                throw new Error('No se encontró el email del usuario en storage');
-            }
-
-            console.log('🔄 [UPDATE] Obteniendo datos del usuario...');
-
-            // Primero obtenemos el User completo
-            const userResponse = await apiClient.get<UserWithPublications>(
-                `/lab/users/get/${encodeURIComponent(userEmail)}`
-            );
-
-            console.log('✅ [UPDATE] User obtenido:', {
-                status: userResponse.status,
-                userId: userResponse.data.id,
-                email: userResponse.data.email,
-                totalPublications: userResponse.data.publications.length,
-                publicationIds: userResponse.data.publications.map((p) => p.id),
-            });
-
-            const userData = userResponse.data;
-
-            // Encontramos y actualizamos la publicación en el array
-            const postIndex = userData.publications.findIndex((p) => p.id === data.id);
-            console.log('🔍 [UPDATE] Buscando post ID:', data.id, 'Índice encontrado:', postIndex);
-
-            if (postIndex === -1) {
-                console.error('❌ [UPDATE] Post no encontrado en publications[]');
-                throw new Error('Publicación no encontrada en el usuario');
-            }
-
-            console.log('📝 [UPDATE] Post original:', JSON.stringify(userData.publications[postIndex], null, 2));
-
-            // Actualizamos la publicación específica
-            userData.publications[postIndex] = {
-                id: data.id,
+            // PASO 2: Crear nueva publicación con datos actualizados
+            console.log('🔄 [UPDATE] PASO 2: Creando nueva publicación con datos actualizados...');
+            const createPayload: CreatePostRequest = {
                 title: data.title,
                 material: data.material,
                 quantity: data.quantity,
                 price: data.price,
                 location: data.location,
                 description: data.description,
-                offers: userData.publications[postIndex].offers, // Mantener offers existentes
             };
 
-            console.log('📝 [UPDATE] Post actualizado:', JSON.stringify(userData.publications[postIndex], null, 2));
-            console.log(
-                '📦 [UPDATE] Payload completo que se enviará:',
-                JSON.stringify(
-                    {
-                        userId: userData.id,
-                        email: userData.email,
-                        totalPublications: userData.publications.length,
-                        updatedPostIndex: postIndex,
-                    },
-                    null,
-                    2
-                )
-            );
+            console.log('📦 [UPDATE] Payload para crear:', JSON.stringify(createPayload, null, 2));
+            const newPost = await postService.createPost(createPayload);
 
-            // Enviamos el User completo al backend
-            console.log('🚀 [UPDATE] Enviando PUT /posts/update...');
-            const response = await apiClient.put('/posts/update', userData);
-
-            console.log('✅ [UPDATE] Respuesta recibida:', {
-                status: response.status,
-                statusText: response.statusText,
-                hasData: !!response.data,
-                dataType: typeof response.data,
-                data: response.data,
+            console.log('✅ [UPDATE] Nueva publicación creada exitosamente:', {
+                newPostId: newPost.id,
+                title: newPost.title,
             });
 
-            // El backend devuelve un string "Post actualizado" en lugar del objeto User
-            // Por lo tanto, devolvemos el post actualizado que ya tenemos en memoria
-            const updatedPost = userData.publications[postIndex];
-
-            console.log('✅ [UPDATE] Post actualizado (desde memoria local):', JSON.stringify(updatedPost, null, 2));
-
+            console.log('✅ [UPDATE] Actualización completada (DELETE+POST)');
             console.groupEnd();
-            return updatedPost;
+            return newPost;
         } catch (error: any) {
             console.error('❌ [UPDATE] Error capturado:', {
                 name: error.name,
@@ -334,15 +339,7 @@ export const postService = {
                 status: error.response?.status,
                 statusText: error.response?.statusText,
                 responseData: error.response?.data,
-                config: {
-                    url: error.config?.url,
-                    method: error.config?.method,
-                    baseURL: error.config?.baseURL,
-                },
             });
-
-            console.log('🔍 [UPDATE] Tipo de error:', typeof error);
-            console.log('🔍 [UPDATE] Es instancia de Error:', error instanceof Error);
 
             console.groupEnd();
 
@@ -404,38 +401,6 @@ export const postService = {
             }
 
             throw new Error('No se pudo eliminar la publicación');
-        }
-    },
-
-    /**
-     * Obtener publicaciones del usuario actual
-     * Filtra los posts por owner (userId actual)
-     */
-    getMyPosts: async (): Promise<Post[]> => {
-        console.group('👤 postService.getMyPosts');
-        try {
-            const userId = await storage.getItem(STORAGE_KEYS.user_id);
-            console.log('🔄 Obteniendo posts del usuario:', userId);
-
-            // Obtener todos los posts y filtrar por owner
-            const allPosts = await postService.getAllPosts();
-            const myPosts = allPosts.filter((p) => p.owner === userId);
-
-            console.log('✅ Posts del usuario:', {
-                userId,
-                totalPosts: allPosts.length,
-                myPosts: myPosts.length,
-            });
-
-            console.groupEnd();
-            return myPosts;
-        } catch (error: any) {
-            console.error('❌ Error en getMyPosts:', {
-                message: error.message,
-                status: error.response?.status,
-            });
-            console.groupEnd();
-            throw error;
         }
     },
 };
