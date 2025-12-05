@@ -1,5 +1,8 @@
 // Reusable components will go here
 
+export { default as AIChatFAB } from "./AIChatFAB";
+export { default as AIChatModal } from "./AIChatModal";
+export { default as AIChatWrapper } from "./AIChatWrapper";
 export { AcceptRejectDialog } from './AcceptRejectDialog';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as ConversationCard } from './ConversationCard';
