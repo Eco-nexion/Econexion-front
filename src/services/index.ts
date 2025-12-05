@@ -1,7 +1,8 @@
-export * from './authService';
-export { default as apiClient } from './axiosConfig';
-export * from './chatService';
-export * from './offersService';
-export * from './postService';
-export { default as PostsService } from './postsService';
-export * from './userService';
+export * from "./aiChatService";
+export * from "./authService";
+export { default as apiClient } from "./axiosConfig";
+export * from "./chatService";
+export * from "./offersService";
+export * from "./postService";
+export { default as PostsService } from "./postsService";
+export * from "./userService";
