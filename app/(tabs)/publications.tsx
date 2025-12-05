@@ -1,12 +1,12 @@
-import { CreateOfferModal, CreatePostModal, PostCard } from '@/src/components';
+import { ConfirmDialog, CreateOfferModal, CreatePostModal, EditPostModal, PostCard } from '@/src/components';
 import { offersService } from '@/src/services/offersService';
 import { postService } from '@/src/services/postService';
-import type { CreateOfferRequest, Post } from '@/src/types';
+import type { CreateOfferRequest, Post, UpdatePostRequest } from '@/src/types';
 import { BorderRadius, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '@utils';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PublicationsTab() {
@@ -14,14 +14,25 @@ export default function PublicationsTab() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [editModalVisible, setEditModalVisible] = useState(false);
     const [offerModalVisible, setOfferModalVisible] = useState(false);
+    const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+    const [postToDelete, setPostToDelete] = useState<Post | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string>('');
 
     // Obtener userId al montar
     useEffect(() => {
         const loadUserId = async () => {
             const userId = (await storage.getItem(STORAGE_KEYS.user_id)) || 'mock-user-id-123';
+            const token = await storage.getItem(STORAGE_KEYS.token);
+
+            console.log('🔐 [Publications] Storage Debug:', {
+                userId: userId ? `${userId.substring(0, 20)}...` : 'NO USER ID',
+                token: token ? `${token.substring(0, 30)}...` : 'NO TOKEN',
+                tokenLength: token?.length || 0,
+            });
+
             setCurrentUserId(userId);
         };
         loadUserId();
@@ -29,10 +40,16 @@ export default function PublicationsTab() {
 
     const loadPosts = useCallback(async () => {
         try {
+            console.log('📱 [Publications] Cargando publicaciones...');
             const data = await postService.getAllPosts();
+            console.log('📱 [Publications] Posts cargados:', data.length);
             setPosts(data);
-        } catch (_error) {
-            Alert.alert('Error', 'No se pudieron cargar las publicaciones');
+        } catch (error: any) {
+            console.error('📱 [Publications] Error cargando posts:', error.message);
+
+            // Mostrar mensaje específico según el error
+            const errorMessage = error.message || 'No se pudieron cargar las publicaciones';
+            Alert.alert('Error', errorMessage);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -58,8 +75,22 @@ export default function PublicationsTab() {
         location: string;
         description: string;
     }) => {
-        await postService.createPost(data);
-        await loadPosts(); // Recargar lista
+        try {
+            console.log('📱 [Publications] Creando nueva publicación:', data.title);
+            await postService.createPost(data);
+            console.log('📱 [Publications] Post creado exitosamente');
+
+            await loadPosts(); // Recargar lista
+            Alert.alert('¡Éxito!', 'Tu publicación ha sido creada correctamente');
+        } catch (error: any) {
+            console.error('📱 [Publications] Error creando post:', error.message);
+
+            const errorMessage = error.message || 'No se pudo crear la publicación';
+            Alert.alert('Error', errorMessage);
+
+            // Re-lanzar el error para que el modal lo maneje si es necesario
+            throw error;
+        }
     };
 
     const handlePostPress = (post: Post) => {
@@ -85,6 +116,111 @@ export default function PublicationsTab() {
         }
     };
 
+    const handleEditPost = (post: Post) => {
+        console.log('📱 [Publications] Editando publicación:', post.id);
+        setSelectedPost(post);
+        setEditModalVisible(true);
+    };
+
+    const handleUpdatePost = async (data: UpdatePostRequest) => {
+        console.log('📱 [Publications] ===== INICIANDO ACTUALIZACIÓN =====');
+        console.log('📱 [Publications] Datos recibidos del modal:', JSON.stringify(data, null, 2));
+        console.log(
+            '📱 [Publications] Estado actual de posts ANTES de actualizar:',
+            posts.map((p) => ({
+                id: p.id,
+                title: p.title,
+                quantity: p.quantity,
+                price: p.price,
+            }))
+        );
+
+        try {
+            console.log('📱 [Publications] Llamando a postService.updatePost...');
+            const result = await postService.updatePost(data);
+            console.log('📱 [Publications] ✅ Resultado de updatePost:', JSON.stringify(result, null, 2));
+            console.log('📱 [Publications] Backend respondió exitosamente, esperando 500ms antes de recargar...');
+
+            // Pequeño delay para asegurar que el backend termine de procesar
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
+            console.log('📱 [Publications] Recargando lista de publicaciones...');
+            await loadPosts();
+
+            console.log(
+                '📱 [Publications] Estado de posts DESPUÉS de recargar:',
+                posts.map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                    quantity: p.quantity,
+                    price: p.price,
+                }))
+            );
+
+            Alert.alert('¡Éxito!', 'Tu publicación ha sido actualizada correctamente');
+            console.log('📱 [Publications] ===== ACTUALIZACIÓN COMPLETADA =====');
+        } catch (error: any) {
+            console.error('📱 [Publications] ===== ERROR EN ACTUALIZACIÓN =====');
+            console.error('📱 [Publications] Error completo:', error);
+            console.error('📱 [Publications] Error.name:', error?.name);
+            console.error('📱 [Publications] Error.message:', error?.message);
+            console.error('📱 [Publications] Error.stack:', error?.stack);
+            console.error('📱 [Publications] typeof error:', typeof error);
+            console.error('📱 [Publications] Error stringified:', JSON.stringify(error, null, 2));
+
+            const errorMessage = error?.message || 'No se pudo actualizar la publicación';
+            console.error('📱 [Publications] Mensaje de error para mostrar:', errorMessage);
+
+            Alert.alert('Error', errorMessage);
+            console.log('📱 [Publications] ===== FIN ERROR =====');
+
+            throw error;
+        }
+    };
+
+    const handleDeletePost = (post: Post) => {
+        console.log('📱 [Publications] Solicitando confirmación para eliminar:', {
+            id: post.id,
+            title: post.title,
+        });
+        setPostToDelete(post);
+        setConfirmDeleteVisible(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!postToDelete) return;
+
+        console.log('📱 [Publications] ===== INICIANDO ELIMINACIÓN =====');
+        const postId = postToDelete.id;
+        setConfirmDeleteVisible(false);
+        setPostToDelete(null);
+
+        // Optimistic update: eliminar de la lista inmediatamente
+        setPosts((currentPosts) => currentPosts.filter((p) => p.id !== postId));
+
+        try {
+            console.log('📱 [Publications] Llamando a postService.deletePost...');
+            await postService.deletePost(postId);
+            console.log('📱 [Publications] ✅ Post eliminado exitosamente');
+
+            // Recargar la lista completa del backend para asegurar sincronización
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            await loadPosts();
+
+            console.log('📱 [Publications] ===== ELIMINACIÓN COMPLETADA =====');
+        } catch (error: any) {
+            console.error('📱 [Publications] Error al eliminar:', error);
+            // Si falla, recargar la lista para restaurar el estado correcto
+            await loadPosts();
+        }
+    };
+
+    const cancelDelete = () => {
+        console.log('📱 [Publications] Eliminación cancelada');
+        setConfirmDeleteVisible(false);
+        setPostToDelete(null);
+    };
+
     const renderEmpty = () => (
         <View style={styles.emptyContainer}>
             <Ionicons name='newspaper-outline' size={64} color={Colors.gray} />
@@ -96,9 +232,34 @@ export default function PublicationsTab() {
     const renderPost = ({ item }: { item: Post }) => {
         const isMyPost = item.owner === currentUserId;
 
+        console.log('📝 [Publications] Renderizando post:', {
+            postId: item.id,
+            title: item.title,
+            owner: item.owner,
+            currentUserId,
+            isMyPost,
+            ownerType: typeof item.owner,
+            userIdType: typeof currentUserId,
+        });
+
+        // TEMPORAL: Forzar showActions = true para debug
+        const forceShowActions = true;
+
         return (
             <View style={styles.postContainer}>
-                <PostCard post={item} onPress={() => handlePostPress(item)} />
+                <PostCard
+                    post={item}
+                    onPress={() => handlePostPress(item)}
+                    showActions={forceShowActions}
+                    onEdit={() => {
+                        console.log('🟢 [Publications] onEdit llamado para:', item.title);
+                        handleEditPost(item);
+                    }}
+                    onDelete={() => {
+                        console.log('🟢 [Publications] onDelete llamado para:', item.title);
+                        handleDeletePost(item);
+                    }}
+                />
                 {isMyPost ? null : (
                     <Pressable
                         style={styles.offerButton}
@@ -155,6 +316,16 @@ export default function PublicationsTab() {
                 onSave={handleCreatePost}
             />
 
+            <EditPostModal
+                visible={editModalVisible}
+                post={selectedPost}
+                onClose={() => {
+                    setEditModalVisible(false);
+                    setSelectedPost(null);
+                }}
+                onSave={handleUpdatePost}
+            />
+
             {selectedPost ? (
                 <CreateOfferModal
                     visible={offerModalVisible}
@@ -167,6 +338,16 @@ export default function PublicationsTab() {
                     onSave={handleCreateOffer}
                 />
             ) : null}
+
+            <ConfirmDialog
+                visible={confirmDeleteVisible}
+                title='Confirmar eliminación'
+                message={`¿Estás seguro de eliminar "${postToDelete?.title}"? Esta acción no se puede deshacer.`}
+                confirmText='Eliminar'
+                cancelText='Cancelar'
+                onConfirm={confirmDelete}
+                onCancel={cancelDelete}
+            />
         </SafeAreaView>
     );
 }

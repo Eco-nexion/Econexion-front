@@ -109,6 +109,7 @@ export default function Register() {
             const idToken = await storage.getItem(STORAGE_KEYS.token);
 
             // 1. Registrar usuario en el backend
+            console.log('📡 Registrando usuario con Google OAuth...');
             const registerResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/register/google`, {
                 method: 'POST',
                 headers: {
@@ -130,9 +131,25 @@ export default function Register() {
                 throw new Error(`Error al registrar: ${errorText}`);
             }
 
-            console.log('✅ Registro completado');
+            const registerData = await registerResponse.json();
+            console.log('✅ Registro completado:', {
+                hasJwt: !!registerData.jwt,
+                hasToken: !!registerData.token,
+                keys: Object.keys(registerData)
+            });
+
+            // Guardar el JWT del backend si lo devuelve
+            const backendJwt = registerData.jwt || registerData.token;
+            if (backendJwt) {
+                console.log('💾 Guardando JWT del backend después del registro...');
+                await storage.setItem(STORAGE_KEYS.token, backendJwt);
+            } else {
+                console.warn('⚠️ Backend no devolvió JWT en registro, usando idToken de Google');
+                await storage.setItem(STORAGE_KEYS.token, idToken || '');
+            }
 
             // 2. Obtener datos completos del usuario desde /lab/users/exists/{email}
+            console.log('📡 Obteniendo datos del usuario...');
             const userDataResponse = await fetch(
                 `${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(form.email)}`,
                 {
@@ -148,8 +165,7 @@ export default function Register() {
             const userData = await userDataResponse.json();
             console.log('✅ Datos del usuario obtenidos');
 
-            // 3. Guardar TODO en storage
-            await storage.setItem(STORAGE_KEYS.token, idToken || '');
+            // 3. Guardar resto de datos en storage
             await storage.setItem(STORAGE_KEYS.user_id, userData.id);
             await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
             await storage.setItem(STORAGE_KEYS.user_username, userData.username);

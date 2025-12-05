@@ -1,7 +1,7 @@
 import type { Post } from '@/src/types';
 import { BorderRadius, Colors, FontSize, Spacing } from '@constants';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface PostCardProps {
     post: Post;
@@ -12,6 +12,14 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, onPress, showActions = false, onEdit, onDelete }: PostCardProps) {
+    console.log('🎴 [PostCard] Renderizando card:', {
+        postId: post.id,
+        title: post.title,
+        showActions,
+        hasOnEdit: !!onEdit,
+        hasOnDelete: !!onDelete,
+    });
+
     const getMaterialIcon = (material: string): keyof typeof Ionicons.glyphMap => {
         // Normalizar el material (quitar tildes y convertir a minúsculas para comparar)
         const normalized = material
@@ -32,83 +40,86 @@ export default function PostCard({ post, onPress, showActions = false, onEdit, o
     };
 
     return (
-        <Pressable style={styles.card} onPress={onPress} android_ripple={{ color: '#f0f0f0' }}>
-            {/* Header con material y badge */}
-            <View style={styles.header}>
-                <View style={styles.materialBadge}>
-                    <Ionicons name={getMaterialIcon(post.material)} size={20} color={Colors.ecoGreen} />
-                    <Text style={styles.materialText}>{post.material}</Text>
-                </View>
-                {post.offers.length > 0 ? (
-                    <View style={styles.offersBadge}>
-                        <Ionicons name='pricetag' size={14} color='#fff' />
-                        <Text style={styles.offersText}>{post.offers.length}</Text>
-                    </View>
-                ) : null}
-            </View>
-
-            {/* Título */}
-            <Text style={styles.title} numberOfLines={2}>
-                {post.title}
-            </Text>
-
-            {/* Descripción */}
-            <Text style={styles.description} numberOfLines={2}>
-                {post.description}
-            </Text>
-
-            {/* Info grid */}
-            <View style={styles.infoGrid}>
-                <View style={styles.infoItem}>
-                    <Ionicons name='cube-outline' size={16} color={Colors.gray} />
-                    <Text style={styles.infoText}>
-                        {post.quantity} {post.quantity === 1 ? 'kg' : 'kg'}
-                    </Text>
-                </View>
-                <View style={styles.infoItem}>
-                    <Ionicons name='cash-outline' size={16} color={Colors.gray} />
-                    <Text style={styles.infoText}>${post.price.toLocaleString()}</Text>
-                </View>
-            </View>
-
-            {/* Ubicación */}
-            <View style={styles.location}>
-                <Ionicons name='location-outline' size={14} color={Colors.gray} />
-                <Text style={styles.locationText} numberOfLines={1}>
-                    {post.location}
-                </Text>
-            </View>
-
-            {/* Botones de acción (solo si showActions = true) */}
-            {showActions ? (
-                <View style={styles.actions}>
+        <View style={styles.card}>
+            {/* Botones de acción en esquina superior derecha (solo si showActions = true) */}
+            {showActions && (onEdit || onDelete) ? (
+                <View style={styles.actionsCorner}>
                     {onEdit ? (
-                        <Pressable
-                            style={[styles.actionButton, styles.editButton]}
-                            onPress={(e) => {
-                                e.stopPropagation();
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => {
+                                console.log('🔵 [PostCard] Botón EDITAR presionado');
                                 onEdit();
                             }}
+                            activeOpacity={0.7}
                         >
                             <Ionicons name='pencil' size={16} color={Colors.ecoGreen} />
-                            <Text style={styles.editButtonText}>Editar</Text>
-                        </Pressable>
+                        </TouchableOpacity>
                     ) : null}
                     {onDelete ? (
-                        <Pressable
-                            style={[styles.actionButton, styles.deleteButton]}
-                            onPress={(e) => {
-                                e.stopPropagation();
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => {
+                                console.log('🔴 [PostCard] Botón ELIMINAR presionado, postId:', post.id);
                                 onDelete();
                             }}
+                            activeOpacity={0.7}
                         >
-                            <Ionicons name='trash' size={16} color='#DC2626' />
-                            <Text style={styles.deleteButtonText}>Eliminar</Text>
-                        </Pressable>
+                            <Ionicons name='trash-outline' size={16} color='#DC2626' />
+                        </TouchableOpacity>
                     ) : null}
                 </View>
             ) : null}
-        </Pressable>
+
+            {/* Contenido del card como Pressable */}
+            <Pressable onPress={onPress} android_ripple={{ color: '#f0f0f0' }}>
+                {/* Header con material y badge */}
+                <View style={styles.header}>
+                    <View style={styles.materialBadge}>
+                        <Ionicons name={getMaterialIcon(post.material)} size={20} color={Colors.ecoGreen} />
+                        <Text style={styles.materialText}>{post.material}</Text>
+                    </View>
+                    {post.offers.length > 0 ? (
+                        <View style={styles.offersBadge}>
+                            <Ionicons name='pricetag' size={14} color='#fff' />
+                            <Text style={styles.offersText}>{post.offers.length}</Text>
+                        </View>
+                    ) : null}
+                </View>
+
+                {/* Título */}
+                <Text style={styles.title} numberOfLines={2}>
+                    {post.title}
+                </Text>
+
+                {/* Descripción */}
+                <Text style={styles.description} numberOfLines={2}>
+                    {post.description}
+                </Text>
+
+                {/* Info grid */}
+                <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                        <Ionicons name='cube-outline' size={16} color={Colors.gray} />
+                        <Text style={styles.infoText}>
+                            {post.quantity} {post.quantity === 1 ? 'kg' : 'kg'}
+                        </Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                        <Ionicons name='cash-outline' size={16} color={Colors.gray} />
+                        <Text style={styles.infoText}>${post.price.toLocaleString()}</Text>
+                    </View>
+                </View>
+
+                {/* Ubicación */}
+                <View style={styles.location}>
+                    <Ionicons name='location-outline' size={14} color={Colors.gray} />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                        {post.location}
+                    </Text>
+                </View>
+            </Pressable>
+        </View>
     );
 }
 
@@ -198,40 +209,28 @@ const styles = StyleSheet.create({
         color: Colors.gray,
         flex: 1,
     },
-    actions: {
+    actionsCorner: {
+        position: 'absolute',
+        top: Spacing.sm,
+        right: Spacing.sm,
         flexDirection: 'row',
-        gap: Spacing.sm,
-        marginTop: Spacing.md,
-        paddingTop: Spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: Colors.lightGray,
+        gap: Spacing.xs,
+        zIndex: 999,
+        elevation: 999,
+        pointerEvents: 'box-none',
     },
-    actionButton: {
-        flex: 1,
-        flexDirection: 'row',
+    iconButton: {
+        width: 32,
+        height: 32,
+        borderRadius: BorderRadius.small,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: Spacing.xs / 2,
-        paddingVertical: Spacing.sm,
-        borderRadius: BorderRadius.medium,
-        borderWidth: 1,
-    },
-    editButton: {
-        borderColor: Colors.ecoGreen,
-        backgroundColor: '#fff',
-    },
-    editButtonText: {
-        fontSize: FontSize.medium,
-        fontWeight: '600',
-        color: Colors.ecoGreen,
-    },
-    deleteButton: {
-        borderColor: '#DC2626',
-        backgroundColor: '#fff',
-    },
-    deleteButtonText: {
-        fontSize: FontSize.medium,
-        fontWeight: '600',
-        color: '#DC2626',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 3,
+        pointerEvents: 'auto',
     },
 });

@@ -1,6 +1,6 @@
 // TypeScript type definitions
 
-export { isEmailValid, MAX_PHOTO_SIZE_MB } from './forms';
+export { MAX_PHOTO_SIZE_MB, isEmailValid } from './forms';
 export type { RegisterForm, RegisterFormErrors, Role } from './forms';
 
 /**
@@ -29,6 +29,15 @@ export const USER_TYPE_LABELS: Record<string, string> = {
 } as const;
 
 /**
+ * Oferta sobre una publicación
+ */
+export interface Offer {
+    id: string;
+    // Agregar más campos según el schema del backend
+    [key: string]: unknown;
+}
+
+/**
  * Publicación de material reciclable
  * Basado en el schema Post del backend
  */
@@ -40,8 +49,24 @@ export interface Post {
     price: number;
     location: string;
     description: string;
-    owner: string; // userId del propietario
-    offers: string[]; // array de offer IDs
+    owner?: string; // userId del propietario (opcional porque el backend no lo devuelve en publications[])
+    offers: Offer[]; // array de offers
+}
+
+/**
+ * Respuesta del endpoint /lab/users/get/{email}
+ */
+export interface UserWithPublications {
+    id: string;
+    enterpriseName: string;
+    username: string;
+    nit: string;
+    email: string;
+    rol: string;
+    password: string | null;
+    conversations: unknown[];
+    publications: Post[];
+    offers: Offer[];
 }
 
 /**

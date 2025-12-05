@@ -53,6 +53,7 @@ export default function Login() {
             console.log('✅ Datos del usuario obtenidos');
 
             // 3. Guardar TODO en storage
+            console.log('💾 Guardando JWT del backend:', loginData.jwt ? `${loginData.jwt.substring(0, 30)}...` : 'NO JWT');
             await storage.setItem(STORAGE_KEYS.token, loginData.jwt);
             await storage.setItem(STORAGE_KEYS.user_id, userData.id);
             await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
@@ -61,7 +62,7 @@ export default function Login() {
             await storage.setItem(STORAGE_KEYS.user_email, userData.email);
             await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
             
-            console.log('✅ Datos guardados, refrescando auth...');
+            console.log('✅ Datos guardados en localStorage, refrescando auth...');
             
             // 4. Refrescar auth y navegar
             await refreshAuth();

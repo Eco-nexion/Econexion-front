@@ -17,15 +17,39 @@ apiClient.interceptors.request.use(
     async (config) => {
         try {
             const token = await storage.getItem(STORAGE_KEYS.token);
+            console.log('🔑 [Interceptor] Token obtenido:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+            
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
+                console.log('✅ [Interceptor] Authorization header agregado');
+            } else {
+                console.warn('⚠️ [Interceptor] No hay token en storage');
+            }
+            
+            console.log('📡 [Interceptor] Request completo:', {
+                method: config.method?.toUpperCase(),
+                url: config.url,
+                baseURL: config.baseURL,
+                fullURL: `${config.baseURL}${config.url}`,
+                hasAuth: !!config.headers.Authorization,
+                contentType: config.headers['Content-Type'],
+                headers: {
+                    Authorization: config.headers.Authorization ? `Bearer ${String(config.headers.Authorization).substring(7, 30)}...` : 'NO AUTH',
+                    'Content-Type': config.headers['Content-Type']
+                }
+            });
+            
+            // Log del body si es POST/PUT
+            if ((config.method === 'post' || config.method === 'put') && config.data) {
+                console.log('📦 [Interceptor] Request Body:', typeof config.data === 'string' ? config.data : JSON.stringify(config.data, null, 2));
             }
         } catch (error) {
-            console.error('Error getting token:', error);
+            console.error('❌ [Interceptor] Error getting token:', error);
         }
         return config;
     },
     (error) => {
+        console.error('❌ [Interceptor] Request error:', error);
         return Promise.reject(error);
     }
 );
