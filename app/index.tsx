@@ -145,7 +145,7 @@ export default function Home() {
                     // Usuario no registrado - redirigir a registro
                     console.log('➡️ Usuario no registrado (401), ir a registro');
                     setIsExchanging(false);
-                    router.push('/auth/register');
+                    router.push('/auth/register?google=true');
                     return null;
                 }
 

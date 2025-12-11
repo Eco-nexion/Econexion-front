@@ -1,9 +1,10 @@
 import { SuccessModal } from '@/src/components';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { authService } from '@/src/services/authService';
 import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import type { RegisterForm, RegisterFormErrors, Role } from '@type/forms';
 import { storage } from '@utils';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +31,9 @@ const decodeIdToken = (token: string) => {
 
 export default function Register() {
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const isGoogleFlow = params.google === 'true'; // Detectar si venimos de Google
+    
     const { refreshAuth } = useAuth();
     const [loading, setLoading] = useState(false);
     const [tokenError, setTokenError] = useState<string | null>(null);
@@ -41,6 +45,7 @@ export default function Register() {
         username: '',
         email: '',
         role: 'BUYER',
+        password: '', // Campo opcional agregado
     });
 
     const [errors, setErrors] = useState<RegisterFormErrors>({});
@@ -53,43 +58,52 @@ export default function Register() {
         if (!f.username.trim()) {
             e.username = 'Requerido';
         }
-        if (!f.email.trim()) {
-            e.email = 'Requerido';
+        if (f.email && !f.email.includes('@')) {
+            e.email = 'Correo inválido';
+        }
+        if (!isGoogleFlow && (!f.password || f.password.length < 6)) {
+            e.password = 'Mínimo 6 caracteres';
         }
         return e;
-    }, []);
+    }, [isGoogleFlow]);
 
     useEffect(() => {
-        const loadGoogleData = async () => {
-            try {
-                const idToken = await storage.getItem(STORAGE_KEYS.token);
-                if (!idToken) {
-                    setTokenError('No se encontró token de Google');
-                    return;
-                }
+        const loadInitialData = async () => {
+            if (isGoogleFlow) {
+                // Lógica existente para Google
+                try {
+                    const idToken = await storage.getItem(STORAGE_KEYS.token);
+                    if (!idToken) {
+                        setTokenError('No se encontró token de Google');
+                        return;
+                    }
 
-                const userData = decodeIdToken(idToken);
-                if (!userData) {
-                    setTokenError('Token inválido');
-                    return;
-                }
+                    const userData = decodeIdToken(idToken);
+                    if (!userData) {
+                        setTokenError('Token inválido');
+                        return;
+                    }
 
-                const newForm = {
-                    enterpriseName: '',
-                    nit: '',
-                    username: userData.name || '',
-                    email: userData.email || '',
-                    role: 'BUYER' as Role,
-                };
-                setForm(newForm);
-                setErrors(collectErrors(newForm));
-            } catch (error) {
-                console.error('Error cargando datos:', error);
-                setTokenError('Error al cargar tus datos');
+                    const newForm = {
+                        enterpriseName: '',
+                        nit: '',
+                        username: userData.name || '',
+                        email: userData.email || '',
+                        role: 'BUYER' as Role,
+                    };
+                    setForm(newForm);
+                    setErrors(collectErrors(newForm));
+                } catch (error) {
+                    console.error('Error cargando datos:', error);
+                    setTokenError('Error al cargar tus datos');
+                }
+            } else {
+                // Flujo normal: Limpiar o dejar vacío (ya está inicializado)
+                console.log('📝 Modo registro normal activado');
             }
         };
-        loadGoogleData();
-    }, [collectErrors]);
+        loadInitialData();
+    }, [collectErrors, isGoogleFlow]);
 
     const setField = <K extends keyof RegisterForm>(key: K, value: RegisterForm[K]) => {
         const next = { ...form, [key]: value };
@@ -108,49 +122,24 @@ export default function Register() {
     const onSubmit = async () => {
         setLoading(true);
         try {
-            const idToken = await storage.getItem(STORAGE_KEYS.token);
-
-            // 1. Registrar usuario en el backend
-            console.log('📡 Registrando usuario con Google OAuth...');
-            const registerResponse = await fetch(`${API_CONFIG.BASE_URL}/api/auth/register/google`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // biome-ignore lint/style/useNamingConvention: <backend expects>
-                    Authorization: `Bearer ${idToken}`,
-                },
-                body: JSON.stringify({
-                    enterpriseName: form.enterpriseName,
-                    username: form.username,
-                    nit: form.nit,
-                    email: form.email,
-                    role: form.role,
-                }),
-            });
-
-            if (!registerResponse.ok) {
-                const errorText = await registerResponse.text();
-                throw new Error(`Error al registrar: ${errorText}`);
-            }
-
-            const registerData = await registerResponse.json();
-            console.log('✅ Registro completado:', {
-                hasJwt: !!registerData.jwt,
-                hasToken: !!registerData.token,
-                keys: Object.keys(registerData)
-            });
-
-            // Guardar el JWT del backend si lo devuelve
-            const backendJwt = registerData.jwt || registerData.token;
-            if (backendJwt) {
-                console.log('💾 Guardando JWT del backend después del registro...');
-                await storage.setItem(STORAGE_KEYS.token, backendJwt);
+            if (isGoogleFlow) {
+                 // 1. Registrar usuario con Google
+                const idToken = await storage.getItem(STORAGE_KEYS.token);
+                if (!idToken) throw new Error('No hay token de Google');
+                
+                await authService.registerWithGoogle(form, idToken);
+                 // El servicio ya devuelve la respuesta, asumimos éxito si no lanza error
+                 // Si el backend devuelve JWT en este endpoint, authService debería retornarlo
+                 // Por ahora mantenemos la lógica de usar el idToken como fallback o manejarlo en SuccessModal
             } else {
-                console.warn('⚠️ Backend no devolvió JWT en registro, usando idToken de Google');
-                await storage.setItem(STORAGE_KEYS.token, idToken || '');
+                // 2. Registro Normal
+                console.log('📝 Enviando registro normal...');
+                await authService.register(form);
+                // El registro normal NO devuelve token utilizable para sesión en este endpoint específico según requerimiento
+                // Se redirige a login
             }
-
-            // 2. Mostrar modal de éxito
+            
+            // 3. Mostrar modal de éxito para ambos casos
             setShowSuccessModal(true);
         } catch (error: unknown) {
             console.error('Error:', error);
@@ -212,11 +201,27 @@ export default function Register() {
 
                 <Field label='Correo *' error={errors.email}>
                     <TextInput
-                        style={[styles.input, { backgroundColor: '#eee' }]}
+                        style={[styles.input, isGoogleFlow && { backgroundColor: '#eee' }]}
                         value={form.email}
-                        editable={false}
+                        onChangeText={(t) => setField('email', t)}
+                        editable={!loading && !isGoogleFlow}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
                     />
                 </Field>
+
+                {!isGoogleFlow && (
+                    <Field label='Contraseña *' error={errors.password}>
+                        <TextInput
+                            style={styles.input}
+                            value={form.password}
+                            onChangeText={(t) => setField('password', t)}
+                            editable={!loading}
+                            secureTextEntry
+                            placeholder="Mínimo 6 caracteres"
+                        />
+                    </Field>
+                )}
 
                 <Field label='Rol *'>
                     <View style={styles.row}>
