@@ -1,4 +1,3 @@
-import { Colors, FontSize, Spacing } from '@constants';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { storage } from '@utils';
@@ -141,7 +140,7 @@ export default function Login() {
                             )}
                         </Pressable>{' '}
                         <View style={styles.rowBetween}>
-                            <Link href='/register' style={styles.link}>
+                            <Link href='/auth/register' style={styles.link}>
                                 Crear cuenta
                             </Link>
                             <Pressable accessibilityRole='button'>
