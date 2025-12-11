@@ -44,8 +44,8 @@ export default function Home() {
             iosClientId === 'your-ios-client-id'
                 ? '⚠️ PLACEHOLDER - No afecta Expo Go'
                 : iosClientId
-                  ? `${iosClientId.substring(0, 20)}...`
-                  : '❌ NO CONFIGURADO'
+                ? `${iosClientId.substring(0, 20)}...`
+                : '❌ NO CONFIGURADO'
         );
         console.log(
             '🤖 Android Client ID:',
@@ -141,11 +141,11 @@ export default function Home() {
             .then((loginRes) => {
                 console.log('📡 Status:', loginRes.status);
 
-                if (loginRes.status === 401) {
+                if (loginRes.status === 404) {
                     // Usuario no registrado - redirigir a registro
                     console.log('➡️ Usuario no registrado (401), ir a registro');
                     setIsExchanging(false);
-                    router.push('/register');
+                    router.push('/auth/register');
                     return null;
                 }
 
@@ -266,7 +266,7 @@ export default function Home() {
                         <Text style={styles.googleText}>{isExchanging ? 'Conectando' : 'Continuar con Google'}</Text>
                     </Pressable>
 
-                    <Link href='/login' asChild>
+                    <Link href='/auth/login' asChild>
                         <Pressable style={styles.econexionButton}>
                             <Text style={styles.econexionButtonText}>♻️ Iniciar con Econexion</Text>
                         </Pressable>
@@ -274,7 +274,7 @@ export default function Home() {
 
                     {authError ? <Text style={{ color: '#C00' }}>{authError}</Text> : null}
 
-                    <Link href='/register' asChild>
+                    <Link href='/auth/register' asChild>
                         <Pressable style={styles.ctaButton}>
                             <Text style={styles.ctaButtonText}>Ir al registro</Text>
                         </Pressable>
