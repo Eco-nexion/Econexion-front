@@ -58,21 +58,19 @@ export default function PublicationsTab() {
 
     useFocusEffect(
         useCallback(() => {
-            // Carga inicial al enfocar si tenemos usuario
+            // Carga inmediata al enfocar
             if (currentUserEmail) {
-                // Opcional: Recargar al enfocar si se desea actualización inmediata
-                // loadPosts(true); 
+                console.log('👁️ [Publications] Tab enfocado - Actualización inmediata');
+                loadPosts(true); 
             }
 
-            // Auto-refresh cada 10 segundos
+            // Auto-refresh cada 5 segundos
             const intervalId = setInterval(() => {
                 if (currentUserEmail) {
                     console.log('🔄 [Auto-Refresh] Actualizando feed (Tab Activo)...');
                     loadPosts(true);
                 }
             }, 5000);
-
-            console.log('👁️ [Publications] Tab enfocado - Iniciando auto-refresh');
 
             return () => {
                 console.log('🙈 [Publications] Tab desenfocado - Deteniendo auto-refresh');

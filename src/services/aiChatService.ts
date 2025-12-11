@@ -1,9 +1,8 @@
 import type { ConversationSummary, Message } from "@/src/types";
 
-// URL del backend de chat IA - DESCOMENTA LA QUE CORRESPONDA A TU ENTORNO:
-// const AI_CHAT_BASE_URL = "http://10.0.2.2:8000"; // Android Emulator
-const AI_CHAT_BASE_URL = "http://localhost:8000"; // Web browser / iOS Simulator
-// const AI_CHAT_BASE_URL = "http://192.168.X.X:8000"; // Dispositivo físico (usa tu IP local)
+// URL del backend de chat IA
+const AI_CHAT_BASE_URL =
+  "http://ec2-98-92-156-170.compute-1.amazonaws.com:8000";
 
 // Tipos específicos para el chat IA
 export interface AIChatRequest {
