@@ -126,7 +126,7 @@ El proyecto requiere el backend de Econexion corriendo:
 http://localhost:8080
 ```
 
-Repositorio del backend: [econexion-app](https://github.com/Eco-nexion/econexion-app)
+Repositorio del backend: [Econexion-back](https://github.com/Eco-nexion/Econexion-back)
 
 ---
 
@@ -135,14 +135,22 @@ Repositorio del backend: [econexion-app](https://github.com/Eco-nexion/econexion
 ### 1️⃣ Clonar el Repositorio
 
 ```bash
-git clone https://github.com/Eco-nexion/econexion-reactnative.git
-cd econexion-reactnative
+git clone https://github.com/Eco-nexion/Econexion-front.git
+cd Econexion-front
 ```
 
 ### 2️⃣ Cambiar a la Rama de Desarrollo
 
 ```bash
-git checkout feature/home
+git checkout develop
+```
+
+
+
+### 4️⃣ Instalar Dependencias
+
+```bash
+pnpm install
 ```
 
 ### 3️⃣ Configurar Variables de Entorno
@@ -170,27 +178,6 @@ EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
 ```
 
 > **⚠️ Importante**: Nunca commitees el archivo `.env` con credenciales reales. Ya está incluido en `.gitignore`.
-
-### 4️⃣ Instalar Dependencias
-
-```bash
-pnpm install
-```
-
-### 4️⃣ Configurar Variables de Entorno (Opcional)
-
-Crea un archivo `.env.local` en la raíz del proyecto:
-
-```env
-# URL del backend
-API_BASE_URL=http://localhost:8080/api
-
-# Para Android Emulator usar:
-# API_BASE_URL=http://10.0.2.2:8080/api
-
-# Para dispositivo físico usar tu IP local:
-# API_BASE_URL=http://192.168.1.XXX:8080/api
-```
 
 ### 5️⃣ Iniciar el Servidor de Desarrollo
 
