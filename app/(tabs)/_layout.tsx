@@ -41,6 +41,7 @@ export default function TabsLayout() {
                 name='publications'
                 options={{
                     title: 'Publicaciones',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => <Ionicons name='newspaper-outline' size={size} color={color} />,
                 }}
             />

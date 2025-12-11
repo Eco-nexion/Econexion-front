@@ -5,6 +5,7 @@ import type { CreateOfferRequest, Post, UpdatePostRequest } from '@/src/types';
 import { BorderRadius, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import { Ionicons } from '@expo/vector-icons';
 import { storage } from '@utils';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ export default function PublicationsTab() {
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [offerModalVisible, setOfferModalVisible] = useState(false);
@@ -38,9 +40,10 @@ export default function PublicationsTab() {
         loadUserEmail();
     }, []);
 
-    const loadPosts = useCallback(async () => {
+    const loadPosts = useCallback(async (silent = false) => {
         try {
-            console.log('📱 [Publications] Cargando publicaciones...');
+            console.log(`📱 [Publications] Cargando publicaciones... (silent: ${silent})`);
+            if (!silent) setLoading(true);
             const data = await postService.getAllPosts();
             console.log('📱 [Publications] Posts cargados:', data.length);
             setPosts(data);
@@ -49,14 +52,34 @@ export default function PublicationsTab() {
         } finally {
             setLoading(false);
             setRefreshing(false);
+            setIsUpdating(false);
         }
     }, []);
 
-    useEffect(() => {
-        if (currentUserEmail) {
-            loadPosts();
-        }
-    }, [currentUserEmail, loadPosts]);
+    useFocusEffect(
+        useCallback(() => {
+            // Carga inicial al enfocar si tenemos usuario
+            if (currentUserEmail) {
+                // Opcional: Recargar al enfocar si se desea actualización inmediata
+                // loadPosts(true); 
+            }
+
+            // Auto-refresh cada 10 segundos
+            const intervalId = setInterval(() => {
+                if (currentUserEmail) {
+                    console.log('🔄 [Auto-Refresh] Actualizando feed (Tab Activo)...');
+                    loadPosts(true);
+                }
+            }, 5000);
+
+            console.log('👁️ [Publications] Tab enfocado - Iniciando auto-refresh');
+
+            return () => {
+                console.log('🙈 [Publications] Tab desenfocado - Deteniendo auto-refresh');
+                clearInterval(intervalId);
+            };
+        }, [currentUserEmail, loadPosts])
+    );
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -266,7 +289,31 @@ export default function PublicationsTab() {
     return (
         <SafeAreaView style={styles.safeArea} edges={['bottom']}>
             <View style={styles.container}>
-                {loading ? (
+                <View style={styles.headerBar}>
+                    <View style={styles.headerTitleContainer}>
+                        <Text style={styles.headerTitle}>Publicaciones</Text>
+                    </View>
+                    <Pressable
+                        onPress={() => {
+                            setIsUpdating(true);
+                            loadPosts(false);
+                        }}
+                        style={({ pressed }) => [
+                            styles.refreshButton,
+                            pressed && { opacity: 0.7 },
+                            isUpdating && { opacity: 0.5 }
+                        ]}
+                        disabled={isUpdating}
+                    >
+                        {isUpdating ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Ionicons name="refresh" size={24} color="#fff" />
+                        )}
+                    </Pressable>
+                </View>
+
+                {loading && !refreshing && !isUpdating ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size='large' color={Colors.ecoGreen} />
                         <Text style={styles.loadingText}>Cargando publicaciones...</Text>
@@ -423,5 +470,31 @@ const styles = StyleSheet.create({
         fontSize: FontSize.large,
         fontWeight: '700',
         color: '#fff',
+    },
+
+    headerBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.ecoGreen,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+    },
+    headerTitleContainer: {
+        flex: 1,
+    },
+    headerTitle: {
+        fontSize: FontSize.xlarge,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    refreshButton: {
+        padding: Spacing.xs,
+        borderRadius: BorderRadius.full,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        width: 36,
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });
