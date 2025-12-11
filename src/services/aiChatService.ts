@@ -1,8 +1,7 @@
 import type { ConversationSummary, Message } from "@/src/types";
 
 // URL del backend de chat IA
-const AI_CHAT_BASE_URL =
-  "http://ec2-98-92-156-170.compute-1.amazonaws.com:8000";
+const AI_CHAT_BASE_URL = "http://ec2-44-221-49-56.compute-1.amazonaws.com:8000";
 
 // Tipos específicos para el chat IA
 export interface AIChatRequest {

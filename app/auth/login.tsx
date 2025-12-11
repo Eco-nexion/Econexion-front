@@ -138,7 +138,7 @@ export default function Login() {
                             ) : (
                                 <Text style={styles.submitText}>Entrar</Text>
                             )}
-                        </Pressable>{' '}
+                        </Pressable>
                         <View style={styles.rowBetween}>
                             <Link href='/auth/register' style={styles.link}>
                                 Crear cuenta
