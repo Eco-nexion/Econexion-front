@@ -1,3 +1,4 @@
+import { AIChatWrapper } from '@/src/components';
 import DashboardCard from '@/src/components/DashboardCard';
 import { useUserDashboard } from '@/src/hooks/useUserDashboard';
 import { BorderRadius, Colors, FontSize, Spacing } from '@constants';
@@ -48,83 +49,88 @@ export default function HomeTab() {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
-            {/* Header verde consistente con otras tabs */}
-            <View style={styles.headerBar}>
-                <Text style={styles.headerTitle}>Inicio</Text>
-            </View>
-
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.content}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
-                {/* Header con saludo, información y avatar */}
-                <View style={styles.header}>
-                    <View style={styles.headerContent}>
-                        <Text style={styles.greeting}>{getGreeting()}</Text>
-                        <Text style={styles.userName}>{userData?.username || 'Usuario'}</Text>
-                        <Text style={styles.userEmail}>{userData?.email || 'correo@ejemplo.com'}</Text>
-                    </View>
-                    <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                            {userData?.username ? getInitials(userData.username) : 'U'}
-                        </Text>
-                    </View>
+        <View style={{ flex: 1 }}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                {/* Header verde consistente con otras tabs */}
+                <View style={styles.headerBar}>
+                    <Text style={styles.headerTitle}>Inicio</Text>
                 </View>
 
-                {/* Título de sección */}
-                <Text style={styles.sectionTitle}>Acceso rápido</Text>
+                <ScrollView
+                    style={styles.container}
+                    contentContainerStyle={styles.content}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                >
+                    {/* Header con saludo, información y avatar */}
+                    <View style={styles.header}>
+                        <View style={styles.headerContent}>
+                            <Text style={styles.greeting}>{getGreeting()}</Text>
+                            <Text style={styles.userName}>{userData?.username || 'Usuario'}</Text>
+                            <Text style={styles.userEmail}>{userData?.email || 'correo@ejemplo.com'}</Text>
+                        </View>
+                        <View style={styles.avatar}>
+                            <Text style={styles.avatarText}>
+                                {userData?.username ? getInitials(userData.username) : 'U'}
+                            </Text>
+                        </View>
+                    </View>
 
-                {/* Tarjetas de navegación */}
-                <DashboardCard
-                    title='Mis Publicaciones'
-                    description='Gestiona tus materiales reciclables publicados'
-                    icon='newspaper'
-                    count={stats.publications}
-                    color={Colors.ecoGreen}
-                    onPress={() => router.push('/(tabs)/publications')}
-                />
+                    {/* Título de sección */}
+                    <Text style={styles.sectionTitle}>Acceso rápido</Text>
 
-                <DashboardCard
-                    title='Ofertas Recibidas'
-                    description='Revisa las ofertas que has recibido en tus publicaciones'
-                    icon='mail'
-                    count={stats.offersReceived}
-                    color={Colors.cyan}
-                    onPress={() => router.push('/(tabs)/offers')}
-                />
+                    {/* Tarjetas de navegación */}
+                    <DashboardCard
+                        title='Mis Publicaciones'
+                        description='Gestiona tus materiales reciclables publicados'
+                        icon='newspaper'
+                        count={stats.publications}
+                        color={Colors.ecoGreen}
+                        onPress={() => router.push('/(tabs)/publications')}
+                    />
 
-                <DashboardCard
-                    title='Ofertas Enviadas'
-                    description='Consulta el estado de las ofertas que has enviado'
-                    icon='paper-plane'
-                    count={stats.offersSent}
-                    color={Colors.peach}
-                    onPress={() => router.push('/(tabs)/offers')}
-                />
+                    <DashboardCard
+                        title='Ofertas Recibidas'
+                        description='Revisa las ofertas que has recibido en tus publicaciones'
+                        icon='mail'
+                        count={stats.offersReceived}
+                        color={Colors.cyan}
+                        onPress={() => router.push('/(tabs)/offers')}
+                    />
 
-                <DashboardCard
-                    title='Mis Chats'
-                    description='Conversaciones activas con otros usuarios'
-                    icon='chatbubbles'
-                    count={stats.activeChats}
-                    color={Colors.limeGreen}
-                    onPress={() => router.push('/(tabs)/chat')}
-                />
+                    <DashboardCard
+                        title='Ofertas Enviadas'
+                        description='Consulta el estado de las ofertas que has enviado'
+                        icon='paper-plane'
+                        count={stats.offersSent}
+                        color={Colors.peach}
+                        onPress={() => router.push('/(tabs)/offers')}
+                    />
 
-                <DashboardCard
-                    title='Mi Perfil'
-                    description='Edita tu información personal y configuración'
-                    icon='person-circle'
-                    color='#6B7280'
-                    onPress={() => router.push('/(tabs)/profile')}
-                />
+                    <DashboardCard
+                        title='Mis Chats'
+                        description='Conversaciones activas con otros usuarios'
+                        icon='chatbubbles'
+                        count={stats.activeChats}
+                        color={Colors.limeGreen}
+                        onPress={() => router.push('/(tabs)/chat')}
+                    />
 
-                {/* Espacio al final */}
-                <View style={{ height: Spacing.xl }} />
-            </ScrollView>
-        </SafeAreaView>
+                    <DashboardCard
+                        title='Mi Perfil'
+                        description='Edita tu información personal y configuración'
+                        icon='person-circle'
+                        color='#6B7280'
+                        onPress={() => router.push('/(tabs)/profile')}
+                    />
+
+                    {/* Espacio al final */}
+                    <View style={{ height: Spacing.xl }} />
+                </ScrollView>
+            </SafeAreaView>
+            
+            {/* Botón flotante de Asistente IA - Solo visible en Home */}
+            <AIChatWrapper />
+        </View>
     );
 }
 

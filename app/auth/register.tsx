@@ -1,3 +1,4 @@
+import { SuccessModal } from '@/src/components';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { API_CONFIG, Colors, FontSize, Spacing, STORAGE_KEYS } from '@constants';
 import type { RegisterForm, RegisterFormErrors, Role } from '@type/forms';
@@ -32,6 +33,7 @@ export default function Register() {
     const { refreshAuth } = useAuth();
     const [loading, setLoading] = useState(false);
     const [tokenError, setTokenError] = useState<string | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const [form, setForm] = useState<RegisterForm>({
         enterpriseName: '',
@@ -148,39 +150,8 @@ export default function Register() {
                 await storage.setItem(STORAGE_KEYS.token, idToken || '');
             }
 
-            // 2. Obtener datos completos del usuario desde /lab/users/exists/{email}
-            console.log('📡 Obteniendo datos del usuario...');
-            const userDataResponse = await fetch(
-                `${API_CONFIG.BASE_URL}/lab/users/exists/${encodeURIComponent(form.email)}`,
-                {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                }
-            );
-
-            if (!userDataResponse.ok) {
-                throw new Error('Error al obtener datos del usuario');
-            }
-
-            const userData = await userDataResponse.json();
-            console.log('✅ Datos del usuario obtenidos');
-
-            // 3. Guardar resto de datos en storage
-            await storage.setItem(STORAGE_KEYS.user_id, userData.id);
-            await storage.setItem(STORAGE_KEYS.user_enterprise_name, userData.enterpriseName);
-            await storage.setItem(STORAGE_KEYS.user_username, userData.username);
-            await storage.setItem(STORAGE_KEYS.user_nit, userData.nit || '');
-            await storage.setItem(STORAGE_KEYS.user_email, userData.email);
-            await storage.setItem(STORAGE_KEYS.user_rol, userData.rol);
-            
-            console.log('✅ Datos guardados, refrescando auth...');
-            
-            // 4. Refrescar auth y navegar
-            await refreshAuth();
-            console.log('✅ Auth refrescado, navegando');
-            
-            Alert.alert('¡Éxito!', 'Bienvenido a Econexion! ♻️');
-            router.replace('/(tabs)/home');
+            // 2. Mostrar modal de éxito
+            setShowSuccessModal(true);
         } catch (error: unknown) {
             console.error('Error:', error);
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -276,6 +247,17 @@ export default function Register() {
                     )}
                 </Pressable>
             </ScrollView>
+
+            <SuccessModal
+                visible={showSuccessModal}
+                title='¡Registro Exitoso!'
+                message='Tu cuenta ha sido creada y verificada. Por favor inicia sesión nuevamente para obtener tu acceso seguro.'
+                buttonText='Ir a Iniciar Sesión'
+                onPress={() => {
+                    setShowSuccessModal(false);
+                    router.replace('/');
+                }}
+            />
         </SafeAreaView>
     );
 }
